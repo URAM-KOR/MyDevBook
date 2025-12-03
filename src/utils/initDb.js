@@ -1,6 +1,8 @@
 const db = require('./db');
+const logger = require('./logger');
 
 function initDatabase() {
+  logger.info('Initializing database tables...');
   // Users 테이블
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -73,7 +75,8 @@ function initDatabase() {
     )
   `);
 
-  console.log('Database initialized successfully');
+  logger.info('Database initialized successfully');
+  logger.logDatabase('init', 'all_tables');
 }
 
 module.exports = { initDatabase };

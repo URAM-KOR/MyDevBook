@@ -10,6 +10,7 @@
 - **Database:** SQLite + LiteFS
 - **Authentication:** Google OAuth (jose JWT)
 - **AI:** OpenAI GPT API
+- **Logging:** Winston
 
 ## 시작하기
 
@@ -32,6 +33,10 @@ cp .env.example .env
 - `GOOGLE_CLIENT_SECRET`: Google OAuth 클라이언트 Secret
 - `OPENAI_API_KEY`: OpenAI API 키
 - `JWT_SECRET`: JWT 서명용 시크릿 키
+
+선택 환경 변수:
+- `LOG_LEVEL`: 로그 레벨 (default: `info`)
+- `LOG_DIR`: 로그 파일 저장 경로 (default: `./logs`)
 
 ### 3. 데이터베이스 초기화
 
@@ -69,6 +74,23 @@ npm run dev
 - ✅ GPT 기반 상태 추적
 - ✅ Web Push 알림
 - ✅ 실시간 상태 모니터링
+
+## 로깅
+
+프로젝트는 Winston을 사용한 구조화된 로깅을 지원합니다.
+
+- **로그 레벨**: `error`, `warn`, `info`, `debug` (환경 변수 `LOG_LEVEL`로 설정)
+- **로그 파일**: `logs/error.log` (에러만), `logs/combined.log` (전체)
+- **콘솔 출력**: 개발 환경에서 자동으로 콘솔에도 출력
+
+```javascript
+const logger = require('@/utils/logger');
+
+logger.info('정보 메시지');
+logger.error('에러 메시지');
+logger.logError(error, { context: '추가 정보' });
+logger.logDatabase('SELECT', 'users', { userId: '123' });
+```
 
 ## 개발 가이드라인
 
