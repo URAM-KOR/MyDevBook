@@ -36,7 +36,12 @@ yarn-error.log*
 .eslintcache
 *.tsbuildinfo
 
+# Database
+/data
+*.db
+*.db-shm
+*.db-wal
+
 # Misc
 *.log
 *.tmp
-
