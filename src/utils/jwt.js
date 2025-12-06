@@ -5,10 +5,13 @@ const secret = new TextEncoder().encode(
 );
 
 async function createToken(payload) {
+  // JWT 만료 시간: 30일 (더 길게 설정)
+  const expirationTime = process.env.JWT_EXPIRATION || '30d';
+  
   const token = await new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('7d')
+    .setExpirationTime(expirationTime)
     .sign(secret);
   
   return token;
