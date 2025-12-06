@@ -6,14 +6,14 @@ class Portfolio {
   static create(portfolioData) {
     try {
       const id = uuidv4();
-      const { userId, title, content, status = 'active', order = 0 } = portfolioData;
+      const { userId, title, content, status = 'active', order = 0, imageUrl } = portfolioData;
 
       const stmt = db.prepare(`
-        INSERT INTO portfolios (id, user_id, title, content, status, "order")
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO portfolios (id, user_id, title, content, status, "order", image_url)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
 
-      stmt.run(id, userId, title, content, status, order);
+      stmt.run(id, userId, title, content, status, order, imageUrl || null);
       logger.logDatabase('INSERT', 'portfolios', { id, userId, title });
 
       return this.findById(id);
@@ -39,13 +39,28 @@ class Portfolio {
       const stmt = db.prepare(`
         SELECT * FROM portfolios 
         WHERE user_id = ? 
-        ORDER BY "order" ASC, created_at DESC
+        ORDER BY created_at DESC
       `);
       const portfolios = stmt.all(userId);
       return portfolios;
     } catch (error) {
       logger.logError(error, { model: 'Portfolio', operation: 'findByUserId', userId });
       throw error;
+    }
+  }
+
+  static getMaxOrder(userId) {
+    try {
+      const stmt = db.prepare(`
+        SELECT MAX("order") as max_order 
+        FROM portfolios 
+        WHERE user_id = ?
+      `);
+      const result = stmt.get(userId);
+      return result?.max_order ?? -1;
+    } catch (error) {
+      logger.logError(error, { model: 'Portfolio', operation: 'getMaxOrder', userId });
+      return -1;
     }
   }
 
@@ -62,7 +77,7 @@ class Portfolio {
 
   static update(id, updateData) {
     try {
-      const { title, content, status, order } = updateData;
+      const { title, content, status, order, imageUrl } = updateData;
       const fields = [];
       const values = [];
 
@@ -81,6 +96,10 @@ class Portfolio {
       if (order !== undefined) {
         fields.push('"order" = ?');
         values.push(order);
+      }
+      if (imageUrl !== undefined) {
+        fields.push('image_url = ?');
+        values.push(imageUrl);
       }
 
       if (fields.length === 0) {
