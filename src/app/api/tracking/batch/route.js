@@ -29,7 +29,7 @@ export async function GET(request) {
         const result = await checkTracking(tracking);
         results.push(result);
         
-        // 알림 조건 충족 시 알림 생성
+        // 알림 조건 충족 시 알림 생성 + Push 전송
         if (result.shouldAlert) {
           Notification.create({
             userId: result.userId,
@@ -39,7 +39,15 @@ export async function GET(request) {
             message: `현재 값: ${result.newValue}\n조건: ${tracking.logic_prompt}`,
           });
           
-          logger.info('Alert notification created', { 
+          // Push 알림 전송
+          await sendPushNotification(result.userId, {
+            title: `🔔 ${result.targetKey}`,
+            body: `현재 값: ${result.newValue}`,
+            url: `/portfolios`,
+            portfolioId: tracking.portfolio_id,
+          });
+          
+          logger.info('Alert notification created and pushed', { 
             portfolioId: tracking.portfolio_id, 
             newValue: result.newValue 
           });
@@ -173,5 +181,42 @@ async function checkTracking(tracking) {
     newValue,
     shouldAlert,
   };
+}
+
+// Push 알림 전송
+async function sendPushNotification(userId, payload) {
+  try {
+    const webpush = (await import('web-push')).default;
+    const PushSubscription = (await import('@/models/PushSubscription.js')).default;
+
+    webpush.setVapidDetails(
+      process.env.VAPID_SUBJECT || 'mailto:test@example.com',
+      process.env.VAPID_PUBLIC_KEY,
+      process.env.VAPID_PRIVATE_KEY
+    );
+
+    const subscriptions = PushSubscription.findByUserId(userId);
+    
+    for (const sub of subscriptions) {
+      try {
+        await webpush.sendNotification(
+          {
+            endpoint: sub.endpoint,
+            keys: { p256dh: sub.p256dh, auth: sub.auth },
+          },
+          JSON.stringify(payload)
+        );
+        logger.info('Push notification sent', { userId });
+      } catch (error) {
+        logger.logError(error, { endpoint: sub.endpoint });
+        // 만료된 구독 삭제
+        if (error.statusCode === 404 || error.statusCode === 410) {
+          PushSubscription.delete(sub.id);
+        }
+      }
+    }
+  } catch (error) {
+    logger.logError(error, { action: 'sendPushNotification', userId });
+  }
 }
 
