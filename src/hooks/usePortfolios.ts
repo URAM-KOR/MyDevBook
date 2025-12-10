@@ -79,6 +79,37 @@ export function usePortfolios() {
     setShowModal(true);
   };
 
+  const handleUpdate = async (wizardData: WizardFormData) => {
+    const token = localStorage.getItem('token');
+    if (!token || !editingPortfolio) return;
+
+    try {
+      const response = await fetch(`/api/portfolios/${editingPortfolio.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: wizardData.title,
+          content: wizardData.content,
+          tracking_url: wizardData.tracking_url,
+          tracking_prompt: wizardData.tracking_prompt,
+          auth_token: wizardData.auth_token || null,
+          auth_type: wizardData.auth_type || 'none',
+        }),
+      });
+
+      if (response.ok) {
+        setShowModal(false);
+        setEditingPortfolio(null);
+        fetchPortfolios();
+      }
+    } catch (error) {
+      console.error('Failed to update portfolio:', error);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return;
 
@@ -117,6 +148,7 @@ export function usePortfolios() {
     showModal,
     editingPortfolio,
     handleCreate,
+    handleUpdate,
     handleEdit,
     handleDelete,
     openModal,

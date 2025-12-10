@@ -31,6 +31,12 @@ export interface Portfolio {
   updated_at: string;
   tracking?: PortfolioTracking | null;
   weather_status?: WeatherStatus;
+  // 트래킹 정보 (조회 시 포함)
+  tracking_url?: string | null;
+  tracking_prompt?: string | null;
+  auth_type?: 'none' | 'github' | 'bearer';
+  last_status?: string | null;
+  last_checked_at?: string | null;
 }
 
 export interface PortfolioCreateDto {
