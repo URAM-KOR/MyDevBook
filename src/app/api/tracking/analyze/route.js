@@ -17,13 +17,13 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { url, data } = body;
+    const { url, data, targetKey } = body;
 
     if (!url || !data) {
       return Response.json({ error: 'URL and data are required' }, { status: 400 });
     }
 
-    logger.info('GPT analysis started', { url, dataLength: data.length });
+    logger.info('GPT analysis started', { url, dataLength: data.length, targetKey });
 
     try {
       const OpenAI = (await import('openai')).default;
@@ -34,23 +34,37 @@ export async function POST(request) {
       // 데이터 요약 (너무 길면 잘라서)
       const truncatedData = data.substring(0, 3000);
 
-      const completion = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: `당신은 API 응답이나 웹 페이지 데이터를 분석하여 핵심 정보를 추출하는 전문가입니다.
+      const systemPrompt = targetKey 
+        ? `당신은 API 응답이나 웹 페이지 데이터를 분석하여 특정 값을 추출하는 전문가입니다.
+사용자가 "${targetKey}"에 대한 값을 찾고 있습니다.
+주어진 데이터에서 "${targetKey}"와 관련된 값을 찾아서 명확하게 알려주세요.
+
+응답 형식:
+- currentValue: 찾은 값 (예: "1,234개", "$45.67", "정상", "23.5%")
+- analysis: 한 줄 설명 (값이 어디서 왔는지, 무엇을 의미하는지)
+
+JSON 형식으로만 응답하세요.`
+        : `당신은 API 응답이나 웹 페이지 데이터를 분석하여 핵심 정보를 추출하는 전문가입니다.
 주어진 데이터에서 가장 중요하고 추적할 만한 값을 찾아서 간결하게 설명해주세요.
 
 응답 형식:
 - currentValue: 핵심 수치나 상태 (예: "스타 수: 1,234개", "가격: $45.67", "상태: 정상")
 - analysis: 한 줄 요약 설명
 
-JSON 형식으로만 응답하세요.`
+JSON 형식으로만 응답하세요.`;
+
+      const completion = await openai.chat.completions.create({
+        model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
           },
           {
             role: 'user',
-            content: `URL: ${url}\n\n데이터:\n${truncatedData}`
+            content: targetKey 
+              ? `"${targetKey}" 값을 찾아주세요.\n\nURL: ${url}\n\n데이터:\n${truncatedData}`
+              : `URL: ${url}\n\n데이터:\n${truncatedData}`
           }
         ],
         max_tokens: 300,
