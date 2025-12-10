@@ -37,6 +37,8 @@ export interface Portfolio {
   auth_type?: 'none' | 'github' | 'bearer';
   last_status?: string | null;
   last_checked_at?: string | null;
+  current_value?: string | null;
+  target_key?: string | null;
 }
 
 export interface PortfolioCreateDto {
