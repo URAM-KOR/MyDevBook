@@ -365,37 +365,86 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
               <div style={{
                 marginTop: spacing.md,
                 padding: spacing.md,
-                backgroundColor: '#fff3e0',
+                backgroundColor: '#f6f8fa',
                 borderRadius: '12px',
-                border: '1px solid #ffcc80',
+                border: '1px solid #d0d7de',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-                  <span style={{ fontSize: '20px' }}>⚠️</span>
-                  <strong style={{ color: '#e65100', fontSize: '14px' }}>GitHub 웹 페이지 URL</strong>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+                  <span style={{ fontSize: '20px' }}>🔗</span>
+                  <strong style={{ color: colors.gray[800], fontSize: '14px' }}>GitHub 웹 URL 감지됨</strong>
                 </div>
-                <p style={{ fontSize: '12px', color: colors.gray[700], marginTop: spacing.sm }}>
-                  <strong>Public 레포</strong>만 접근 가능합니다.<br/>
-                  <span style={{ color: '#c62828' }}>프라이빗 레포는 웹 URL로 접근할 수 없습니다!</span>
-                </p>
-                <div style={{ 
-                  marginTop: spacing.sm, 
-                  padding: spacing.sm, 
-                  backgroundColor: '#e3f2fd',
-                  borderRadius: '8px',
-                }}>
-                  <p style={{ fontSize: '11px', color: '#1565c0', margin: 0 }}>
-                    💡 <strong>프라이빗 레포</strong>는 API URL을 사용하세요:<br/>
-                    <code style={{ 
-                      backgroundColor: 'white', 
-                      padding: '2px 6px', 
-                      borderRadius: '4px',
-                      display: 'inline-block',
-                      marginTop: '4px',
-                    }}>
-                      https://api.github.com/repos/OWNER/REPO
-                    </code>
+                
+                <label style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={showAuthOption}
+                    onChange={(e) => {
+                      setShowAuthOption(e.target.checked);
+                      if (e.target.checked) {
+                        // 웹 URL을 API URL로 자동 변환
+                        const match = formData.tracking_url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+                        if (match) {
+                          const apiUrl = `https://api.github.com/repos/${match[1]}/${match[2]}`;
+                          setFormData({ ...formData, tracking_url: apiUrl, auth_type: 'github' });
+                        }
+                      } else {
+                        setFormData({ ...formData, auth_token: '', auth_type: 'none' });
+                      }
+                    }}
+                    style={{ width: '16px', height: '16px' }}
+                  />
+                  <span style={{ fontSize: '14px', color: colors.gray[700] }}>
+                    프라이빗 레포입니다 (API URL로 자동 변환 + 토큰)
+                  </span>
+                </label>
+                
+                {!showAuthOption && (
+                  <p style={{ fontSize: '11px', color: colors.gray[500], marginTop: spacing.sm }}>
+                    💡 Public 레포는 체크 없이 바로 테스트 가능합니다
                   </p>
-                </div>
+                )}
+                
+                {showAuthOption && (
+                  <div style={{ marginTop: spacing.sm }}>
+                    <p style={{ fontSize: '12px', color: '#1565c0', marginBottom: spacing.sm }}>
+                      ✅ API URL로 변환됨: <code style={{ backgroundColor: '#e3f2fd', padding: '2px 4px', borderRadius: '4px' }}>{formData.tracking_url}</code>
+                    </p>
+                    <input
+                      type="password"
+                      value={formData.auth_token || ''}
+                      onChange={(e) => setFormData({ ...formData, auth_token: e.target.value })}
+                      placeholder="ghp_xxxx... 또는 github_pat_xxxx..."
+                      style={{
+                        width: '100%',
+                        padding: spacing.sm,
+                        fontSize: '14px',
+                        border: `1px solid ${colors.gray[300]}`,
+                        borderRadius: button.borderRadius,
+                        outline: 'none',
+                        fontFamily: 'monospace',
+                      }}
+                      className="focus:border-blue-500"
+                    />
+                    <div style={{ 
+                      fontSize: '11px', 
+                      color: colors.gray[600], 
+                      marginTop: spacing.sm,
+                      backgroundColor: '#fff8e1',
+                      padding: spacing.sm,
+                      borderRadius: '8px',
+                      border: '1px solid #ffe082',
+                    }}>
+                      <p style={{ fontWeight: 600, marginBottom: '4px' }}>📋 토큰 발급 방법:</p>
+                      <ol style={{ margin: 0, paddingLeft: '16px', lineHeight: 1.6 }}>
+                        <li>GitHub → <strong>Settings</strong></li>
+                        <li>Developer Settings → <strong>Personal access tokens</strong></li>
+                        <li><strong>Fine-grained tokens</strong> → Generate new token</li>
+                        <li>Repository access → <strong>Only select repositories</strong></li>
+                        <li>Permissions → Contents → <strong>Read-only</strong></li>
+                      </ol>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             
