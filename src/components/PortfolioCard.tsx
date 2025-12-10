@@ -59,7 +59,28 @@ export default function PortfolioCard({ portfolio, onEdit, onDelete }: Portfolio
           >
             {portfolio.title}
           </h3>
-          {portfolio.content && (
+          {/* 추적 정보 표시 */}
+          {portfolio.target_key && (
+            <div
+              style={{
+                padding: spacing.sm,
+                backgroundColor: colors.gray[50],
+                borderRadius: '8px',
+                marginBottom: spacing.md,
+              }}
+            >
+              <p style={{ fontSize: '12px', color: colors.gray[500], margin: 0 }}>
+                🎯 {portfolio.target_key}
+              </p>
+              {portfolio.current_value && (
+                <p style={{ fontSize: '16px', fontWeight: 600, color: colors.blue[600], margin: '4px 0 0' }}>
+                  {portfolio.current_value}
+                </p>
+              )}
+            </div>
+          )}
+          
+          {portfolio.content && !portfolio.target_key && (
             <p
               style={{
                 fontSize: typography.description.size,
