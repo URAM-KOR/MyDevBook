@@ -35,34 +35,26 @@ export async function POST(request) {
       const truncatedData = data.substring(0, 30000);
 
       const systemPrompt = targetKey 
-        ? `당신은 API 응답, JSON, HTML, 웹 페이지 등 모든 형식의 데이터에서 특정 값을 추출하는 전문가입니다.
+        ? `당신은 텍스트에서 특정 값을 정확하게 추출하는 전문가입니다.
+
+**중요: 데이터에 있는 값을 그대로 복사해서 반환하세요. 절대 추측하거나 변환하지 마세요.**
 
 사용자가 찾는 값: "${targetKey}"
 
-데이터가 HTML이라면:
-- 태그 안의 텍스트, 속성값, 메타데이터 등에서 찾으세요
-- 날짜, 숫자, 상태 등이 포함된 텍스트를 찾으세요
+규칙:
+1. 데이터에서 "${targetKey}"와 관련된 부분을 찾으세요
+2. 찾은 값을 **있는 그대로** 복사하세요 (예: "4 days ago"면 "4 days ago"로)
+3. 번역하거나 변환하지 마세요
+4. 가장 최신/대표적인 값을 선택하세요
 
-데이터가 JSON이라면:
-- 관련된 키의 값을 찾으세요
+응답 형식 (JSON만, 다른 텍스트 없이):
+{"currentValue": "데이터에서 찾은 원본 값", "analysis": "어디서 찾았는지"}`
+        : `당신은 텍스트에서 핵심 정보를 정확하게 추출하는 전문가입니다.
 
-**반드시 값을 찾아서 응답하세요. "찾을 수 없다"고 하지 마세요.**
-데이터 어딘가에 관련 정보가 있을 것입니다.
+**중요: 데이터에 있는 값을 그대로 복사해서 반환하세요.**
 
-응답 형식 (JSON):
-{
-  "currentValue": "찾은 값 (예: 2024-12-10, 1234개, $45.67)",
-  "analysis": "어디서 찾았는지 한 줄 설명"
-}`
-        : `당신은 API 응답, JSON, HTML 등 모든 형식의 데이터에서 핵심 정보를 추출하는 전문가입니다.
-
-데이터에서 가장 중요하고 추적할 만한 값을 찾아주세요.
-
-응답 형식 (JSON):
-{
-  "currentValue": "핵심 값 (예: 1,234개, $45.67, 정상)",
-  "analysis": "한 줄 설명"
-}`;
+응답 형식 (JSON만):
+{"currentValue": "핵심 값", "analysis": "한 줄 설명"}`;
 
       const completion = await openai.chat.completions.create({
         model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
@@ -74,12 +66,12 @@ export async function POST(request) {
           {
             role: 'user',
             content: targetKey 
-              ? `"${targetKey}"과 관련된 값을 데이터에서 찾아주세요. 반드시 찾아야 합니다.\n\nURL: ${url}\n\n데이터:\n${truncatedData}`
-              : `URL: ${url}\n\n데이터:\n${truncatedData}`
+              ? `"${targetKey}"을 찾아서 데이터에 있는 그대로 반환하세요.\n\n데이터:\n${truncatedData}`
+              : `데이터:\n${truncatedData}`
           }
         ],
-        max_tokens: 500,
-        temperature: 0.2,
+        max_tokens: 200,
+        temperature: 0,  // 정확한 추출을 위해 0
       });
 
       const responseText = completion.choices[0]?.message?.content || '';
