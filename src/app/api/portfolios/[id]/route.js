@@ -104,6 +104,13 @@ export async function DELETE(request, { params }) {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    // 관련 트래킹 먼저 삭제 (Foreign Key 제약)
+    const PortfolioTracking = (await import('@/models/PortfolioTracking.js')).default;
+    const trackings = PortfolioTracking.findByPortfolioId(id);
+    for (const tracking of trackings) {
+      PortfolioTracking.delete(tracking.id);
+    }
+
     const deleted = Portfolio.delete(id);
 
     if (!deleted) {
