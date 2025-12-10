@@ -6,6 +6,7 @@ import PortfolioGrid from '@/components/PortfolioGrid';
 import Loading from '@/components/Loading';
 import Modal from '@/components/Modal';
 import PortfolioWizard from '@/components/PortfolioWizard';
+import PushNotification from '@/components/PushNotification';
 
 export default function PortfoliosPage() {
   const {
@@ -35,6 +36,7 @@ export default function PortfoliosPage() {
 
   return (
     <PageLayout title="My Dev Books">
+      <PushNotification />
       <PortfolioGrid
         portfolios={portfolios}
         onEdit={handleEdit}
