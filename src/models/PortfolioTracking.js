@@ -1,20 +1,24 @@
 const db = require('../utils/db');
 const logger = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
+const { encryptToken, decryptToken } = require('../utils/crypto');
 
 class PortfolioTracking {
   static create(trackingData) {
     try {
       const id = uuidv4();
-      const { portfolioId, url, logicPrompt } = trackingData;
+      const { portfolioId, url, logicPrompt, authToken, authType } = trackingData;
+
+      // 토큰 암호화
+      const encryptedToken = authToken ? encryptToken(authToken) : null;
 
       const stmt = db.prepare(`
-        INSERT INTO portfolio_trackings (id, portfolio_id, url, logic_prompt)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO portfolio_trackings (id, portfolio_id, url, logic_prompt, auth_token, auth_type)
+        VALUES (?, ?, ?, ?, ?, ?)
       `);
 
-      stmt.run(id, portfolioId, url, logicPrompt);
-      logger.logDatabase('INSERT', 'portfolio_trackings', { id, portfolioId, url });
+      stmt.run(id, portfolioId, url, logicPrompt, encryptedToken, authType || 'none');
+      logger.logDatabase('INSERT', 'portfolio_trackings', { id, portfolioId, url, hasAuth: !!authToken });
 
       return this.findById(id);
     } catch (error) {
@@ -30,6 +34,22 @@ class PortfolioTracking {
       return tracking || null;
     } catch (error) {
       logger.logError(error, { model: 'PortfolioTracking', operation: 'findById', id });
+      throw error;
+    }
+  }
+
+  /**
+   * 복호화된 토큰과 함께 조회 (자동 트래킹용)
+   */
+  static findByIdWithToken(id) {
+    try {
+      const tracking = this.findById(id);
+      if (tracking && tracking.auth_token) {
+        tracking.decrypted_token = decryptToken(tracking.auth_token);
+      }
+      return tracking;
+    } catch (error) {
+      logger.logError(error, { model: 'PortfolioTracking', operation: 'findByIdWithToken', id });
       throw error;
     }
   }
@@ -70,7 +90,12 @@ class PortfolioTracking {
         ORDER BY last_checked_at ASC NULLS FIRST
       `);
       const trackings = stmt.all();
-      return trackings;
+      
+      // 복호화된 토큰 추가
+      return trackings.map(t => ({
+        ...t,
+        decrypted_token: t.auth_token ? decryptToken(t.auth_token) : null,
+      }));
     } catch (error) {
       logger.logError(error, { model: 'PortfolioTracking', operation: 'findPendingChecks' });
       throw error;
@@ -99,7 +124,7 @@ class PortfolioTracking {
 
   static update(id, updateData) {
     try {
-      const { url, logicPrompt } = updateData;
+      const { url, logicPrompt, authToken, authType } = updateData;
       const fields = [];
       const values = [];
 
@@ -110,6 +135,14 @@ class PortfolioTracking {
       if (logicPrompt !== undefined) {
         fields.push('logic_prompt = ?');
         values.push(logicPrompt);
+      }
+      if (authToken !== undefined) {
+        fields.push('auth_token = ?');
+        values.push(authToken ? encryptToken(authToken) : null);
+      }
+      if (authType !== undefined) {
+        fields.push('auth_type = ?');
+        values.push(authType);
       }
 
       if (fields.length === 0) {
@@ -149,4 +182,3 @@ class PortfolioTracking {
 }
 
 module.exports = PortfolioTracking;
-
