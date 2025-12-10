@@ -383,7 +383,7 @@ export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardP
                       type="password"
                       value={formData.auth_token || ''}
                       onChange={(e) => setFormData({ ...formData, auth_token: e.target.value })}
-                      placeholder="ghp_xxxx... (Personal Access Token)"
+                      placeholder="ghp_xxxx... 또는 github_pat_xxxx..."
                       style={{
                         width: '100%',
                         padding: spacing.sm,
@@ -395,10 +395,26 @@ export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardP
                       }}
                       className="focus:border-blue-500"
                     />
-                    <p style={{ fontSize: '11px', color: colors.gray[500], marginTop: spacing.xs }}>
-                      💡 Settings → Developer settings → Personal access tokens → 
-                      <strong> repo (read) </strong> 권한만 있으면 됩니다
-                    </p>
+                    <div style={{ 
+                      fontSize: '11px', 
+                      color: colors.gray[600], 
+                      marginTop: spacing.sm,
+                      backgroundColor: '#fff8e1',
+                      padding: spacing.sm,
+                      borderRadius: '8px',
+                      border: '1px solid #ffe082',
+                    }}>
+                      <p style={{ fontWeight: 600, marginBottom: '4px' }}>📋 토큰 발급 방법:</p>
+                      <ol style={{ margin: 0, paddingLeft: '16px', lineHeight: 1.6 }}>
+                        <li>GitHub → Settings → Developer settings</li>
+                        <li><strong>Fine-grained tokens</strong> → Generate new token</li>
+                        <li>Repository access → <strong>Only select repositories</strong></li>
+                        <li>Permissions → Contents → <strong>Read-only</strong></li>
+                      </ol>
+                      <p style={{ marginTop: '6px', color: colors.gray[500] }}>
+                        ⚠️ Deploy Key(SSH)는 API 호출에 사용할 수 없습니다
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
