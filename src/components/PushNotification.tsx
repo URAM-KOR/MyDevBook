@@ -7,9 +7,11 @@ export default function PushNotification() {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if ('Notification' in window) {
+    setMounted(true);
+    if (typeof window !== 'undefined' && 'Notification' in window) {
       setPermission(Notification.permission);
     }
     checkSubscription();
@@ -95,7 +97,12 @@ export default function PushNotification() {
     }
   };
 
-  if (!('Notification' in window)) {
+  // 클라이언트에서만 렌더링
+  if (!mounted) {
+    return null;
+  }
+
+  if (typeof window === 'undefined' || !('Notification' in window)) {
     return null;
   }
 
