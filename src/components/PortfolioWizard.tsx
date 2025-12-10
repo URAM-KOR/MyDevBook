@@ -52,9 +52,12 @@ const inputSteps = [
 ];
 
 // URL 타입 감지
-function detectUrlType(url: string): 'github' | 'other' {
-  if (url.includes('github.com') || url.includes('api.github.com')) {
-    return 'github';
+function detectUrlType(url: string): 'github-api' | 'github-web' | 'other' {
+  if (url.includes('api.github.com')) {
+    return 'github-api';  // API - 토큰 인증 가능
+  }
+  if (url.includes('github.com')) {
+    return 'github-web';  // 웹 페이지 - 토큰 인증 불가
   }
   return 'other';
 }
@@ -77,7 +80,8 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
   );
   
   const urlType = detectUrlType(formData.tracking_url);
-  const isGitHubUrl = urlType === 'github';
+  const isGitHubApi = urlType === 'github-api';
+  const isGitHubWeb = urlType === 'github-web';
 
   const hasTracking = formData.tracking_url && formData.tracking_prompt;
   const totalSteps = hasTracking ? inputSteps.length + 1 : inputSteps.length;
@@ -356,8 +360,34 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
               />
             )}
             
-            {/* GitHub URL 감지 시 인증 옵션 */}
-            {currentField.key === 'tracking_url' && formData.tracking_url && isGitHubUrl && (
+            {/* GitHub 웹 페이지 감지 시 안내 */}
+            {currentField.key === 'tracking_url' && formData.tracking_url && isGitHubWeb && (
+              <div style={{
+                marginTop: spacing.md,
+                padding: spacing.md,
+                backgroundColor: '#e8f5e9',
+                borderRadius: '12px',
+                border: '1px solid #a5d6a7',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                  <span style={{ fontSize: '20px' }}>🌐</span>
+                  <strong style={{ color: colors.gray[800], fontSize: '14px' }}>GitHub 웹 페이지</strong>
+                </div>
+                <p style={{ fontSize: '12px', color: colors.gray[600], marginTop: spacing.sm }}>
+                  웹 페이지 내용을 읽어서 GPT가 분석합니다.<br/>
+                  Public 레포는 인증 없이 접근 가능합니다.
+                </p>
+                <p style={{ fontSize: '11px', color: colors.gray[500], marginTop: spacing.xs }}>
+                  💡 더 정확한 데이터를 원하면 API URL 사용을 권장합니다:<br/>
+                  <code style={{ backgroundColor: colors.gray[100], padding: '2px 4px', borderRadius: '4px' }}>
+                    api.github.com/repos/owner/repo
+                  </code>
+                </p>
+              </div>
+            )}
+            
+            {/* GitHub API 감지 시 인증 옵션 */}
+            {currentField.key === 'tracking_url' && formData.tracking_url && isGitHubApi && (
               <div style={{
                 marginTop: spacing.md,
                 padding: spacing.md,
@@ -366,8 +396,8 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
                 border: '1px solid #d0d7de',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-                  <span style={{ fontSize: '20px' }}>🔒</span>
-                  <strong style={{ color: colors.gray[800], fontSize: '14px' }}>GitHub 레포 감지됨</strong>
+                  <span style={{ fontSize: '20px' }}>🔗</span>
+                  <strong style={{ color: colors.gray[800], fontSize: '14px' }}>GitHub API 감지됨</strong>
                 </div>
                 
                 <label style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, cursor: 'pointer' }}>
