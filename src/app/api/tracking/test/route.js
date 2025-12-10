@@ -116,7 +116,7 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { url, prompt } = body;
+    const { url, prompt, auth_token, auth_type } = body;
 
     if (!url || !prompt) {
       return Response.json({ error: 'URL and prompt are required' }, { status: 400 });
@@ -135,7 +135,7 @@ export async function POST(request) {
       });
     }
 
-    logger.info('Tracking test started', { url, promptLength: prompt.length });
+    logger.info('Tracking test started', { url, promptLength: prompt.length, hasAuth: !!auth_token });
 
     // 1. URL에서 데이터 가져오기 (타임아웃 설정)
     let urlData;
@@ -144,11 +144,23 @@ export async function POST(request) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
       
+      // 인증 헤더 설정
+      const headers = {
+        'User-Agent': 'MyDevBook Tracker/1.0',
+        'Accept': 'application/json, text/plain, */*',
+      };
+      
+      // GitHub 토큰 또는 Bearer 토큰 추가
+      if (auth_token) {
+        if (auth_type === 'github') {
+          headers['Authorization'] = `Bearer ${auth_token}`;
+        } else if (auth_type === 'bearer') {
+          headers['Authorization'] = `Bearer ${auth_token}`;
+        }
+      }
+      
       fetchResponse = await fetch(url, {
-        headers: {
-          'User-Agent': 'MyDevBook Tracker/1.0',
-          'Accept': 'application/json, text/plain, */*',
-        },
+        headers,
         signal: controller.signal,
       });
       

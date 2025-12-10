@@ -11,6 +11,8 @@ export interface PortfolioFormData {
   content: string;
   tracking_url: string;
   tracking_prompt: string;
+  auth_token?: string;
+  auth_type?: 'none' | 'github' | 'bearer';
 }
 
 interface TestResult {
@@ -39,6 +41,14 @@ const inputSteps = [
   { key: 'tracking_prompt', label: '추적할 값/상태 프롬프트', placeholder: '예: stargazers_count 값이 100 이상이면 알려줘' },
 ];
 
+// URL 타입 감지
+function detectUrlType(url: string): 'github' | 'other' {
+  if (url.includes('github.com') || url.includes('api.github.com')) {
+    return 'github';
+  }
+  return 'other';
+}
+
 export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<PortfolioFormData>({
@@ -46,10 +56,16 @@ export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardP
     content: '',
     tracking_url: '',
     tracking_prompt: '',
+    auth_token: '',
+    auth_type: 'none',
   });
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [showAuthOption, setShowAuthOption] = useState(false);
+  
+  const urlType = detectUrlType(formData.tracking_url);
+  const isGitHubUrl = urlType === 'github';
 
   const hasTracking = formData.tracking_url && formData.tracking_prompt;
   const totalSteps = hasTracking ? inputSteps.length + 1 : inputSteps.length;
@@ -73,6 +89,8 @@ export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardP
         body: JSON.stringify({
           url: formData.tracking_url,
           prompt: formData.tracking_prompt,
+          auth_token: formData.auth_token || null,
+          auth_type: formData.auth_type || 'none',
         }),
       });
 
@@ -324,6 +342,66 @@ export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardP
                 }}
                 className="focus:border-blue-500"
               />
+            )}
+            
+            {/* GitHub URL 감지 시 인증 옵션 */}
+            {currentField.key === 'tracking_url' && formData.tracking_url && isGitHubUrl && (
+              <div style={{
+                marginTop: spacing.md,
+                padding: spacing.md,
+                backgroundColor: '#f6f8fa',
+                borderRadius: '12px',
+                border: '1px solid #d0d7de',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+                  <span style={{ fontSize: '20px' }}>🔒</span>
+                  <strong style={{ color: colors.gray[800], fontSize: '14px' }}>GitHub 레포 감지됨</strong>
+                </div>
+                
+                <label style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={showAuthOption}
+                    onChange={(e) => {
+                      setShowAuthOption(e.target.checked);
+                      if (!e.target.checked) {
+                        setFormData({ ...formData, auth_token: '', auth_type: 'none' });
+                      } else {
+                        setFormData({ ...formData, auth_type: 'github' });
+                      }
+                    }}
+                    style={{ width: '16px', height: '16px' }}
+                  />
+                  <span style={{ fontSize: '14px', color: colors.gray[700] }}>
+                    프라이빗 레포입니다 (토큰 필요)
+                  </span>
+                </label>
+                
+                {showAuthOption && (
+                  <div style={{ marginTop: spacing.sm }}>
+                    <input
+                      type="password"
+                      value={formData.auth_token || ''}
+                      onChange={(e) => setFormData({ ...formData, auth_token: e.target.value })}
+                      placeholder="ghp_xxxx... (Personal Access Token)"
+                      style={{
+                        width: '100%',
+                        padding: spacing.sm,
+                        fontSize: '14px',
+                        border: `1px solid ${colors.gray[300]}`,
+                        borderRadius: button.borderRadius,
+                        outline: 'none',
+                        fontFamily: 'monospace',
+                      }}
+                      className="focus:border-blue-500"
+                    />
+                    <p style={{ fontSize: '11px', color: colors.gray[500], marginTop: spacing.xs }}>
+                      💡 Settings → Developer settings → Personal access tokens → 
+                      <strong> repo (read) </strong> 권한만 있으면 됩니다
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
             
             {/* 스킵 안내 (URL, 프롬프트 단계) */}
