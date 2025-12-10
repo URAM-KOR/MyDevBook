@@ -82,7 +82,7 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { title, content, status, order, image_url, tracking_url, tracking_prompt } = body;
+    const { title, content, status, order, image_url, tracking_url, tracking_prompt, auth_token, auth_type } = body;
 
     if (!title) {
       return Response.json({ error: 'Title is required' }, { status: 400 });
@@ -105,13 +105,15 @@ export async function POST(request) {
       imageUrl: image_url || null,
     });
 
-    // 트래킹 정보가 있으면 함께 생성
+    // 트래킹 정보가 있으면 함께 생성 (토큰 포함)
     let tracking = null;
     if (tracking_url && tracking_prompt) {
       tracking = PortfolioTracking.create({
         portfolioId: portfolio.id,
         url: tracking_url,
         logicPrompt: tracking_prompt,
+        authToken: auth_token || null,
+        authType: auth_type || 'none',
       });
     }
 
