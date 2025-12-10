@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { colors, spacing, card, button, typography } from '@/styles/design-tokens';
+import { colors, spacing, button, typography } from '@/styles/design-tokens';
 
 interface PortfolioWizardProps {
   onSubmit: (data: PortfolioFormData) => void;
@@ -13,11 +13,22 @@ export interface PortfolioFormData {
   tracking_prompt: string;
 }
 
-const steps = [
+interface TestResult {
+  success: boolean;
+  step?: string;
+  error?: string;
+  result?: {
+    status: string;
+    analysis: string;
+    urlDataPreview: string;
+  };
+}
+
+const inputSteps = [
   { key: 'title', label: '포트폴리오 이름', placeholder: '예: 내 GitHub 프로젝트' },
   { key: 'content', label: '목표 또는 목적', placeholder: '예: 스타 1000개 달성하기' },
   { key: 'tracking_url', label: '추적할 API URL', placeholder: '예: https://api.github.com/repos/...' },
-  { key: 'tracking_prompt', label: '추적할 값/상태 프롬프트', placeholder: '예: stargazers_count 값을 추적해줘' },
+  { key: 'tracking_prompt', label: '추적할 값/상태 프롬프트', placeholder: '예: stargazers_count 값이 100 이상이면 알려줘' },
 ];
 
 export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardProps) {
@@ -29,10 +40,45 @@ export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardP
     tracking_prompt: '',
   });
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
 
-  const currentField = steps[currentStep];
-  const isLastStep = currentStep === steps.length - 1;
+  const hasTracking = formData.tracking_url && formData.tracking_prompt;
+  const totalSteps = hasTracking ? inputSteps.length + 1 : inputSteps.length;
+  const isTestStep = hasTracking && currentStep === inputSteps.length;
+  const isLastStep = currentStep === totalSteps - 1;
   const isFirstStep = currentStep === 0;
+  const currentField = inputSteps[currentStep];
+
+  const runTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/tracking/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          url: formData.tracking_url,
+          prompt: formData.tracking_prompt,
+        }),
+      });
+
+      const data = await response.json();
+      setTestResult(data);
+    } catch (error) {
+      setTestResult({
+        success: false,
+        error: '테스트 실행 중 오류가 발생했습니다.',
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const handleNext = () => {
     if (isLastStep) {
@@ -40,6 +86,11 @@ export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardP
     } else {
       setDirection('next');
       setCurrentStep((prev) => prev + 1);
+      
+      // 테스트 단계로 이동하면 자동 실행
+      if (hasTracking && currentStep === inputSteps.length - 1) {
+        setTimeout(runTest, 500);
+      }
     }
   };
 
@@ -47,22 +98,23 @@ export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardP
     if (!isFirstStep) {
       setDirection('prev');
       setCurrentStep((prev) => prev - 1);
+      setTestResult(null);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && formData[currentField.key as keyof PortfolioFormData]) {
+    if (e.key === 'Enter' && currentField && formData[currentField.key as keyof PortfolioFormData]) {
       handleNext();
     }
   };
 
-  const currentValue = formData[currentField.key as keyof PortfolioFormData];
+  const currentValue = currentField ? formData[currentField.key as keyof PortfolioFormData] : '';
 
   return (
     <div style={{ padding: spacing.xl, paddingTop: '48px' }}>
       {/* Progress indicator */}
       <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.xl }}>
-        {steps.map((_, index) => (
+        {Array.from({ length: totalSteps }).map((_, index) => (
           <div
             key={index}
             style={{
@@ -79,89 +131,162 @@ export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardP
       {/* Step content */}
       <div
         style={{
-          minHeight: '200px',
+          minHeight: '250px',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
         }}
       >
-        <div
-          key={currentStep}
-          style={{
-            animation: `slideIn${direction === 'next' ? 'Right' : 'Left'} 300ms ease-out`,
-          }}
-        >
-          <p
+        {isTestStep ? (
+          // 테스트 단계
+          <div
+            key="test"
             style={{
-              fontSize: '14px',
-              color: colors.gray[500],
-              marginBottom: spacing.sm,
+              animation: `slideIn${direction === 'next' ? 'Right' : 'Left'} 300ms ease-out`,
             }}
           >
-            {currentStep + 1} / {steps.length}
-          </p>
-          <h3
+            <p style={{ fontSize: '14px', color: colors.gray[500], marginBottom: spacing.sm }}>
+              {currentStep + 1} / {totalSteps}
+            </p>
+            <h3 style={{ fontSize: '24px', fontWeight: 600, color: colors.gray[800], marginBottom: spacing.lg }}>
+              🧪 추적 테스트
+            </h3>
+
+            {testing ? (
+              <div style={{ textAlign: 'center', padding: spacing.xl }}>
+                <div className="spinner" style={{ margin: '0 auto 16px' }} />
+                <p style={{ color: colors.gray[600] }}>API 확인 중...</p>
+              </div>
+            ) : testResult ? (
+              <div
+                style={{
+                  padding: spacing.md,
+                  borderRadius: '12px',
+                  backgroundColor: testResult.success ? '#ecfdf5' : '#fef2f2',
+                  border: `1px solid ${testResult.success ? '#10b981' : '#ef4444'}`,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+                  <span style={{ fontSize: '24px' }}>{testResult.success ? '✅' : '❌'}</span>
+                  <strong style={{ color: testResult.success ? '#059669' : '#dc2626' }}>
+                    {testResult.success ? '테스트 성공!' : '테스트 실패'}
+                  </strong>
+                </div>
+                
+                {testResult.success && testResult.result ? (
+                  <div style={{ fontSize: '14px', color: colors.gray[700] }}>
+                    <p style={{ marginBottom: spacing.sm }}>
+                      <strong>분석 결과:</strong> {testResult.result.analysis}
+                    </p>
+                    <details style={{ marginTop: spacing.sm }}>
+                      <summary style={{ cursor: 'pointer', color: colors.gray[500] }}>
+                        API 응답 미리보기
+                      </summary>
+                      <pre style={{
+                        marginTop: spacing.sm,
+                        padding: spacing.sm,
+                        backgroundColor: colors.gray[100],
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        overflow: 'auto',
+                        maxHeight: '100px',
+                      }}>
+                        {testResult.result.urlDataPreview}
+                      </pre>
+                    </details>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '14px', color: '#dc2626' }}>
+                    {testResult.error}
+                  </p>
+                )}
+
+                <button
+                  onClick={runTest}
+                  style={{
+                    marginTop: spacing.md,
+                    padding: `${spacing.xs} ${spacing.md}`,
+                    backgroundColor: colors.gray[200],
+                    color: colors.gray[700],
+                    borderRadius: button.borderRadius,
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                  }}
+                >
+                  🔄 다시 테스트
+                </button>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', color: colors.gray[500] }}>
+                <p>테스트를 시작합니다...</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          // 입력 단계
+          <div
+            key={currentStep}
             style={{
-              fontSize: '24px',
-              fontWeight: 600,
-              color: colors.gray[800],
-              marginBottom: spacing.lg,
+              animation: `slideIn${direction === 'next' ? 'Right' : 'Left'} 300ms ease-out`,
             }}
           >
-            {currentField.label}
-          </h3>
-          {currentField.key === 'content' || currentField.key === 'tracking_prompt' ? (
-            <textarea
-              autoFocus
-              value={currentValue}
-              onChange={(e) =>
-                setFormData({ ...formData, [currentField.key]: e.target.value })
-              }
-              placeholder={currentField.placeholder}
-              style={{
-                width: '100%',
-                padding: spacing.md,
-                fontSize: typography.title.size,
-                border: `2px solid ${colors.gray[200]}`,
-                borderRadius: button.borderRadius,
-                outline: 'none',
-                resize: 'none',
-                minHeight: '100px',
-              }}
-              className="focus:border-blue-500"
-            />
-          ) : (
-            <input
-              autoFocus
-              type={currentField.key === 'tracking_url' ? 'url' : 'text'}
-              value={currentValue}
-              onChange={(e) =>
-                setFormData({ ...formData, [currentField.key]: e.target.value })
-              }
-              onKeyDown={handleKeyDown}
-              placeholder={currentField.placeholder}
-              style={{
-                width: '100%',
-                padding: spacing.md,
-                fontSize: typography.title.size,
-                border: `2px solid ${colors.gray[200]}`,
-                borderRadius: button.borderRadius,
-                outline: 'none',
-              }}
-              className="focus:border-blue-500"
-            />
-          )}
-        </div>
+            <p style={{ fontSize: '14px', color: colors.gray[500], marginBottom: spacing.sm }}>
+              {currentStep + 1} / {totalSteps}
+            </p>
+            <h3 style={{ fontSize: '24px', fontWeight: 600, color: colors.gray[800], marginBottom: spacing.lg }}>
+              {currentField.label}
+            </h3>
+            {currentField.key === 'content' || currentField.key === 'tracking_prompt' ? (
+              <textarea
+                autoFocus
+                value={currentValue}
+                onChange={(e) => setFormData({ ...formData, [currentField.key]: e.target.value })}
+                placeholder={currentField.placeholder}
+                style={{
+                  width: '100%',
+                  padding: spacing.md,
+                  fontSize: typography.title.size,
+                  border: `2px solid ${colors.gray[200]}`,
+                  borderRadius: button.borderRadius,
+                  outline: 'none',
+                  resize: 'none',
+                  minHeight: '100px',
+                }}
+                className="focus:border-blue-500"
+              />
+            ) : (
+              <input
+                autoFocus
+                type={currentField.key === 'tracking_url' ? 'url' : 'text'}
+                value={currentValue}
+                onChange={(e) => setFormData({ ...formData, [currentField.key]: e.target.value })}
+                onKeyDown={handleKeyDown}
+                placeholder={currentField.placeholder}
+                style={{
+                  width: '100%',
+                  padding: spacing.md,
+                  fontSize: typography.title.size,
+                  border: `2px solid ${colors.gray[200]}`,
+                  borderRadius: button.borderRadius,
+                  outline: 'none',
+                }}
+                className="focus:border-blue-500"
+              />
+            )}
+            
+            {/* 스킵 안내 (URL, 프롬프트 단계) */}
+            {(currentField.key === 'tracking_url' || currentField.key === 'tracking_prompt') && (
+              <p style={{ fontSize: '12px', color: colors.gray[400], marginTop: spacing.sm }}>
+                💡 나중에 설정하려면 비워두고 다음으로
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Navigation buttons */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          marginTop: spacing.xl,
-        }}
-      >
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: spacing.xl }}>
         <button
           onClick={isFirstStep ? onCancel : handlePrev}
           style={{
@@ -179,45 +304,43 @@ export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardP
         </button>
         <button
           onClick={handleNext}
-          disabled={!currentValue && currentStep === 0}
+          disabled={(!currentValue && currentStep === 0) || testing}
           style={{
             padding: `${spacing.sm} ${spacing.lg}`,
-            backgroundColor: currentValue || currentStep > 0 ? colors.blue[500] : colors.gray[300],
+            backgroundColor: (currentValue || currentStep > 0) && !testing ? colors.blue[500] : colors.gray[300],
             color: 'white',
             borderRadius: button.borderRadius,
             border: 'none',
-            cursor: currentValue || currentStep > 0 ? 'pointer' : 'not-allowed',
+            cursor: (currentValue || currentStep > 0) && !testing ? 'pointer' : 'not-allowed',
             fontSize: '16px',
           }}
-          className={currentValue || currentStep > 0 ? 'hover:bg-blue-600' : ''}
+          className={(currentValue || currentStep > 0) && !testing ? 'hover:bg-blue-600' : ''}
         >
-          {isLastStep ? '완료' : '다음'}
+          {testing ? '테스트 중...' : isLastStep ? '✓ 완료' : '다음'}
         </button>
       </div>
 
       <style>{`
         @keyframes slideInRight {
-          from {
-            opacity: 0;
-            transform: translateX(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
+          from { opacity: 0; transform: translateX(30px); }
+          to { opacity: 1; transform: translateX(0); }
         }
         @keyframes slideInLeft {
-          from {
-            opacity: 0;
-            transform: translateX(-30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
+          from { opacity: 0; transform: translateX(-30px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        .spinner {
+          width: 32px;
+          height: 32px;
+          border: 3px solid ${colors.gray[200]};
+          border-top-color: ${colors.blue[500]};
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
         }
       `}</style>
     </div>
   );
 }
-
