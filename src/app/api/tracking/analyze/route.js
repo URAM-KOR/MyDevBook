@@ -31,25 +31,8 @@ export async function POST(request) {
         apiKey: process.env.OPENAI_API_KEY,
       });
 
-      // HTML인 경우 정리해서 보내기
-      let cleanedData = data;
-      
-      if (data.includes('<html') || data.includes('<!DOCTYPE')) {
-        // HTML 정리: script, style, head, 주석 제거
-        cleanedData = data
-          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-          .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-          .replace(/<head\b[^<]*(?:(?!<\/head>)<[^<]*)*<\/head>/gi, '')
-          .replace(/<!--[\s\S]*?-->/g, '')
-          .replace(/<[^>]+>/g, ' ')  // 태그 제거
-          .replace(/\s+/g, ' ')       // 연속 공백 제거
-          .trim();
-        
-        logger.info('HTML cleaned', { originalLength: data.length, cleanedLength: cleanedData.length });
-      }
-
-      // 데이터 요약 (정리된 데이터에서 더 많이)
-      const truncatedData = cleanedData.substring(0, 30000);
+      // 데이터 요약 (Puppeteer가 이미 텍스트만 추출함)
+      const truncatedData = data.substring(0, 30000);
 
       const systemPrompt = targetKey 
         ? `당신은 API 응답, JSON, HTML, 웹 페이지 등 모든 형식의 데이터에서 특정 값을 추출하는 전문가입니다.
