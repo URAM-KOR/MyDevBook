@@ -144,10 +144,11 @@ export async function POST(request) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
       
-      // 인증 헤더 설정
+      // 인증 헤더 설정 (브라우저처럼 보이게)
       const headers = {
-        'User-Agent': 'MyDevBook Tracker/1.0',
-        'Accept': 'application/json, text/html, text/plain, */*',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
       };
       
       // GitHub API에만 토큰 적용 (웹 페이지는 토큰 인증 안됨)
@@ -163,19 +164,32 @@ export async function POST(request) {
       fetchResponse = await fetch(url, {
         headers,
         signal: controller.signal,
+        redirect: 'follow',  // 리다이렉트 따라가기
       });
       
       clearTimeout(timeoutId);
       
+      logger.info('Fetch response', { 
+        status: fetchResponse.status, 
+        url: fetchResponse.url,
+        redirected: fetchResponse.redirected,
+      });
+      
       if (!fetchResponse.ok) {
         const errorType = getErrorType(null, fetchResponse);
         const errorInfo = errorMessages[errorType];
+        
+        // 응답 본문도 확인
+        const errorBody = await fetchResponse.text().catch(() => '');
+        logger.info('Error response body', { body: errorBody.substring(0, 500) });
+        
         return Response.json({
           success: false,
           step: 'fetch',
           errorType,
           ...errorInfo,
           statusCode: fetchResponse.status,
+          detail: `URL: ${fetchResponse.url}`,
         });
       }
       

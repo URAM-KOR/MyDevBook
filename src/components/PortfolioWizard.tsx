@@ -365,24 +365,37 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
               <div style={{
                 marginTop: spacing.md,
                 padding: spacing.md,
-                backgroundColor: '#e8f5e9',
+                backgroundColor: '#fff3e0',
                 borderRadius: '12px',
-                border: '1px solid #a5d6a7',
+                border: '1px solid #ffcc80',
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
-                  <span style={{ fontSize: '20px' }}>🌐</span>
-                  <strong style={{ color: colors.gray[800], fontSize: '14px' }}>GitHub 웹 페이지</strong>
+                  <span style={{ fontSize: '20px' }}>⚠️</span>
+                  <strong style={{ color: '#e65100', fontSize: '14px' }}>GitHub 웹 페이지 URL</strong>
                 </div>
-                <p style={{ fontSize: '12px', color: colors.gray[600], marginTop: spacing.sm }}>
-                  웹 페이지 내용을 읽어서 GPT가 분석합니다.<br/>
-                  Public 레포는 인증 없이 접근 가능합니다.
+                <p style={{ fontSize: '12px', color: colors.gray[700], marginTop: spacing.sm }}>
+                  <strong>Public 레포</strong>만 접근 가능합니다.<br/>
+                  <span style={{ color: '#c62828' }}>프라이빗 레포는 웹 URL로 접근할 수 없습니다!</span>
                 </p>
-                <p style={{ fontSize: '11px', color: colors.gray[500], marginTop: spacing.xs }}>
-                  💡 더 정확한 데이터를 원하면 API URL 사용을 권장합니다:<br/>
-                  <code style={{ backgroundColor: colors.gray[100], padding: '2px 4px', borderRadius: '4px' }}>
-                    api.github.com/repos/owner/repo
-                  </code>
-                </p>
+                <div style={{ 
+                  marginTop: spacing.sm, 
+                  padding: spacing.sm, 
+                  backgroundColor: '#e3f2fd',
+                  borderRadius: '8px',
+                }}>
+                  <p style={{ fontSize: '11px', color: '#1565c0', margin: 0 }}>
+                    💡 <strong>프라이빗 레포</strong>는 API URL을 사용하세요:<br/>
+                    <code style={{ 
+                      backgroundColor: 'white', 
+                      padding: '2px 6px', 
+                      borderRadius: '4px',
+                      display: 'inline-block',
+                      marginTop: '4px',
+                    }}>
+                      https://api.github.com/repos/OWNER/REPO
+                    </code>
+                  </p>
+                </div>
               </div>
             )}
             
