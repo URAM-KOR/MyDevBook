@@ -12,7 +12,9 @@ export default function PortfoliosPage() {
     portfolios,
     loading,
     showModal,
+    editingPortfolio,
     handleCreate,
+    handleUpdate,
     handleEdit,
     handleDelete,
     openModal,
@@ -23,6 +25,15 @@ export default function PortfoliosPage() {
     return <Loading />;
   }
 
+  // 수정 모드일 때 초기 데이터 준비
+  const initialData = editingPortfolio ? {
+    title: editingPortfolio.title,
+    content: editingPortfolio.content || '',
+    tracking_url: editingPortfolio.tracking_url || '',
+    tracking_prompt: editingPortfolio.tracking_prompt || '',
+    auth_type: editingPortfolio.auth_type as 'none' | 'github' | 'bearer' || 'none',
+  } : null;
+
   return (
     <PageLayout title="My Dev Books">
       <PortfolioGrid
@@ -32,8 +43,17 @@ export default function PortfoliosPage() {
         onAdd={openModal}
       />
 
-      <Modal isOpen={showModal} onClose={closeModal}>
-        <PortfolioWizard onSubmit={handleCreate} onCancel={closeModal} />
+      <Modal 
+        isOpen={showModal} 
+        onClose={closeModal}
+        title={editingPortfolio ? '포트폴리오 수정' : '새 포트폴리오'}
+      >
+        <PortfolioWizard 
+          onSubmit={editingPortfolio ? handleUpdate : handleCreate} 
+          onCancel={closeModal}
+          initialData={initialData}
+          isEditing={!!editingPortfolio}
+        />
       </Modal>
     </PageLayout>
   );

@@ -1,9 +1,19 @@
 import { useState } from 'react';
 import { colors, spacing, button, typography } from '@/styles/design-tokens';
 
+interface InitialData {
+  title?: string;
+  content?: string;
+  tracking_url?: string;
+  tracking_prompt?: string;
+  auth_type?: 'none' | 'github' | 'bearer';
+}
+
 interface PortfolioWizardProps {
   onSubmit: (data: PortfolioFormData) => void;
   onCancel: () => void;
+  initialData?: InitialData | null;
+  isEditing?: boolean;
 }
 
 export interface PortfolioFormData {
@@ -49,20 +59,22 @@ function detectUrlType(url: string): 'github' | 'other' {
   return 'other';
 }
 
-export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardProps) {
+export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEditing }: PortfolioWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<PortfolioFormData>({
-    title: '',
-    content: '',
-    tracking_url: '',
-    tracking_prompt: '',
-    auth_token: '',
-    auth_type: 'none',
+    title: initialData?.title || '',
+    content: initialData?.content || '',
+    tracking_url: initialData?.tracking_url || '',
+    tracking_prompt: initialData?.tracking_prompt || '',
+    auth_token: '', // 토큰은 보안상 다시 입력
+    auth_type: initialData?.auth_type || 'none',
   });
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
-  const [showAuthOption, setShowAuthOption] = useState(false);
+  const [showAuthOption, setShowAuthOption] = useState(
+    initialData?.auth_type === 'github' || initialData?.auth_type === 'bearer'
+  );
   
   const urlType = detectUrlType(formData.tracking_url);
   const isGitHubUrl = urlType === 'github';
