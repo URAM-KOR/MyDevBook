@@ -40,9 +40,9 @@ interface AnalysisResult {
 // 단계 정의
 const STEPS = {
   TITLE: 0,
-  CONTENT: 1,
-  URL: 2,
-  URL_CHECK: 3,      // URL 접근 확인 + GPT 현재값 분석
+  URL: 1,
+  URL_CHECK: 2,      // URL 접근 확인 + GPT 현재값 분석
+  CONTENT: 3,        // 목표
   ALERT_GOAL: 4,     // 알림 목표 입력
 };
 
@@ -64,7 +64,7 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
 
-  const totalSteps = formData.tracking_url ? 5 : 3;
+  const totalSteps = formData.tracking_url ? 5 : 2;
   const isLastStep = currentStep === (formData.tracking_url ? STEPS.ALERT_GOAL : STEPS.URL);
   const isFirstStep = currentStep === STEPS.TITLE;
 
@@ -138,7 +138,10 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
     
     setDirection('next');
     
-    if (currentStep === STEPS.URL && formData.tracking_url) {
+    if (currentStep === STEPS.TITLE) {
+      // 이름 → URL
+      setCurrentStep(STEPS.URL);
+    } else if (currentStep === STEPS.URL && formData.tracking_url) {
       // URL 입력 후 → URL 체크 단계로
       setCurrentStep(STEPS.URL_CHECK);
       setTimeout(checkUrl, 300);
@@ -146,7 +149,10 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
       // URL 없이 완료
       onSubmit(formData);
     } else if (currentStep === STEPS.URL_CHECK) {
-      // URL 체크 성공 후 → 알림 목표 입력으로
+      // URL 체크 성공 후 → 목표 입력으로
+      setCurrentStep(STEPS.CONTENT);
+    } else if (currentStep === STEPS.CONTENT) {
+      // 목표 → 알림 목표
       setCurrentStep(STEPS.ALERT_GOAL);
     } else {
       setCurrentStep(prev => prev + 1);
@@ -157,11 +163,15 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
     if (!isFirstStep) {
       setDirection('prev');
       if (currentStep === STEPS.ALERT_GOAL) {
+        setCurrentStep(STEPS.CONTENT);
+      } else if (currentStep === STEPS.CONTENT) {
         setCurrentStep(STEPS.URL_CHECK);
       } else if (currentStep === STEPS.URL_CHECK) {
         setCurrentStep(STEPS.URL);
         setUrlCheckResult(null);
         setAnalysisResult(null);
+      } else if (currentStep === STEPS.URL) {
+        setCurrentStep(STEPS.TITLE);
       } else {
         setCurrentStep(prev => prev - 1);
       }
@@ -182,8 +192,8 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
   };
 
   const getProgressSteps = () => {
-    if (!formData.tracking_url) return ['이름', '목표', 'URL'];
-    return ['이름', '목표', 'URL', '확인', '알림 목표'];
+    if (!formData.tracking_url) return ['이름', 'URL'];
+    return ['이름', 'URL', '확인', '목표', '알림 목표'];
   };
 
   const renderStepContent = () => {
