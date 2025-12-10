@@ -6,7 +6,6 @@ interface InitialData {
   content?: string;
   tracking_url?: string;
   tracking_prompt?: string;
-  auth_type?: 'none' | 'github' | 'bearer';
 }
 
 interface PortfolioWizardProps {
@@ -21,8 +20,6 @@ export interface PortfolioFormData {
   content: string;
   tracking_url: string;
   tracking_prompt: string;
-  auth_token?: string;
-  auth_type?: 'none' | 'github' | 'bearer';
 }
 
 interface TestResult {
@@ -51,16 +48,6 @@ const inputSteps = [
   { key: 'tracking_prompt', label: '추적할 값/상태 프롬프트', placeholder: '예: stargazers_count 값이 100 이상이면 알려줘' },
 ];
 
-// URL 타입 감지
-function detectUrlType(url: string): 'github-api' | 'github-web' | 'other' {
-  if (url.includes('api.github.com')) {
-    return 'github-api';  // API - 토큰 인증 가능
-  }
-  if (url.includes('github.com')) {
-    return 'github-web';  // 웹 페이지 - 토큰 인증 불가
-  }
-  return 'other';
-}
 
 export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEditing }: PortfolioWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
@@ -69,19 +56,10 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
     content: initialData?.content || '',
     tracking_url: initialData?.tracking_url || '',
     tracking_prompt: initialData?.tracking_prompt || '',
-    auth_token: '', // 토큰은 보안상 다시 입력
-    auth_type: initialData?.auth_type || 'none',
   });
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
-  const [showAuthOption, setShowAuthOption] = useState(
-    initialData?.auth_type === 'github' || initialData?.auth_type === 'bearer'
-  );
-  
-  const urlType = detectUrlType(formData.tracking_url);
-  const isGitHubApi = urlType === 'github-api';
-  const isGitHubWeb = urlType === 'github-web';
 
   const hasTracking = formData.tracking_url && formData.tracking_prompt;
   const totalSteps = hasTracking ? inputSteps.length + 1 : inputSteps.length;
@@ -105,8 +83,6 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
         body: JSON.stringify({
           url: formData.tracking_url,
           prompt: formData.tracking_prompt,
-          auth_token: formData.auth_token || null,
-          auth_type: formData.auth_type || 'none',
         }),
       });
 
@@ -360,168 +336,26 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
               />
             )}
             
-            {/* GitHub 웹 페이지 감지 시 안내 */}
-            {currentField.key === 'tracking_url' && formData.tracking_url && isGitHubWeb && (
+            {/* URL 입력 시 안내 */}
+            {currentField.key === 'tracking_url' && formData.tracking_url && (
               <div style={{
                 marginTop: spacing.md,
                 padding: spacing.md,
-                backgroundColor: '#f6f8fa',
+                backgroundColor: '#e8f5e9',
                 borderRadius: '12px',
-                border: '1px solid #d0d7de',
+                border: '1px solid #a5d6a7',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-                  <span style={{ fontSize: '20px' }}>🔗</span>
-                  <strong style={{ color: colors.gray[800], fontSize: '14px' }}>GitHub 웹 URL 감지됨</strong>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                  <span style={{ fontSize: '20px' }}>💡</span>
+                  <strong style={{ color: colors.gray[800], fontSize: '14px' }}>안내</strong>
                 </div>
-                
-                <label style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={showAuthOption}
-                    onChange={(e) => {
-                      setShowAuthOption(e.target.checked);
-                      if (e.target.checked) {
-                        // 웹 URL을 API URL로 자동 변환
-                        const match = formData.tracking_url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
-                        if (match) {
-                          const apiUrl = `https://api.github.com/repos/${match[1]}/${match[2]}`;
-                          setFormData({ ...formData, tracking_url: apiUrl, auth_type: 'github' });
-                        }
-                      } else {
-                        setFormData({ ...formData, auth_token: '', auth_type: 'none' });
-                      }
-                    }}
-                    style={{ width: '16px', height: '16px' }}
-                  />
-                  <span style={{ fontSize: '14px', color: colors.gray[700] }}>
-                    프라이빗 레포입니다 (API URL로 자동 변환 + 토큰)
-                  </span>
-                </label>
-                
-                {!showAuthOption && (
-                  <p style={{ fontSize: '11px', color: colors.gray[500], marginTop: spacing.sm }}>
-                    💡 Public 레포는 체크 없이 바로 테스트 가능합니다
-                  </p>
-                )}
-                
-                {showAuthOption && (
-                  <div style={{ marginTop: spacing.sm }}>
-                    <p style={{ fontSize: '12px', color: '#1565c0', marginBottom: spacing.sm }}>
-                      ✅ API URL로 변환됨: <code style={{ backgroundColor: '#e3f2fd', padding: '2px 4px', borderRadius: '4px' }}>{formData.tracking_url}</code>
-                    </p>
-                    <input
-                      type="password"
-                      value={formData.auth_token || ''}
-                      onChange={(e) => setFormData({ ...formData, auth_token: e.target.value })}
-                      placeholder="ghp_xxxx... 또는 github_pat_xxxx..."
-                      style={{
-                        width: '100%',
-                        padding: spacing.sm,
-                        fontSize: '14px',
-                        border: `1px solid ${colors.gray[300]}`,
-                        borderRadius: button.borderRadius,
-                        outline: 'none',
-                        fontFamily: 'monospace',
-                      }}
-                      className="focus:border-blue-500"
-                    />
-                    <div style={{ 
-                      fontSize: '11px', 
-                      color: colors.gray[600], 
-                      marginTop: spacing.sm,
-                      backgroundColor: '#fff8e1',
-                      padding: spacing.sm,
-                      borderRadius: '8px',
-                      border: '1px solid #ffe082',
-                    }}>
-                      <p style={{ fontWeight: 600, marginBottom: '4px' }}>📋 토큰 발급 방법:</p>
-                      <ol style={{ margin: 0, paddingLeft: '16px', lineHeight: 1.6 }}>
-                        <li>GitHub → <strong>Settings</strong></li>
-                        <li>Developer Settings → <strong>Personal access tokens</strong></li>
-                        <li><strong>Fine-grained tokens</strong> → Generate new token</li>
-                        <li>Repository access → <strong>Only select repositories</strong></li>
-                        <li>Permissions → Contents → <strong>Read-only</strong></li>
-                      </ol>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            
-            {/* GitHub API 감지 시 인증 옵션 */}
-            {currentField.key === 'tracking_url' && formData.tracking_url && isGitHubApi && (
-              <div style={{
-                marginTop: spacing.md,
-                padding: spacing.md,
-                backgroundColor: '#f6f8fa',
-                borderRadius: '12px',
-                border: '1px solid #d0d7de',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-                  <span style={{ fontSize: '20px' }}>🔗</span>
-                  <strong style={{ color: colors.gray[800], fontSize: '14px' }}>GitHub API 감지됨</strong>
-                </div>
-                
-                <label style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={showAuthOption}
-                    onChange={(e) => {
-                      setShowAuthOption(e.target.checked);
-                      if (!e.target.checked) {
-                        setFormData({ ...formData, auth_token: '', auth_type: 'none' });
-                      } else {
-                        setFormData({ ...formData, auth_type: 'github' });
-                      }
-                    }}
-                    style={{ width: '16px', height: '16px' }}
-                  />
-                  <span style={{ fontSize: '14px', color: colors.gray[700] }}>
-                    프라이빗 레포입니다 (토큰 필요)
-                  </span>
-                </label>
-                
-                {showAuthOption && (
-                  <div style={{ marginTop: spacing.sm }}>
-                    <input
-                      type="password"
-                      value={formData.auth_token || ''}
-                      onChange={(e) => setFormData({ ...formData, auth_token: e.target.value })}
-                      placeholder="ghp_xxxx... 또는 github_pat_xxxx..."
-                      style={{
-                        width: '100%',
-                        padding: spacing.sm,
-                        fontSize: '14px',
-                        border: `1px solid ${colors.gray[300]}`,
-                        borderRadius: button.borderRadius,
-                        outline: 'none',
-                        fontFamily: 'monospace',
-                      }}
-                      className="focus:border-blue-500"
-                    />
-                    <div style={{ 
-                      fontSize: '11px', 
-                      color: colors.gray[600], 
-                      marginTop: spacing.sm,
-                      backgroundColor: '#fff8e1',
-                      padding: spacing.sm,
-                      borderRadius: '8px',
-                      border: '1px solid #ffe082',
-                    }}>
-                      <p style={{ fontWeight: 600, marginBottom: '4px' }}>📋 토큰 발급 방법:</p>
-                      <ol style={{ margin: 0, paddingLeft: '16px', lineHeight: 1.6 }}>
-                        <li>GitHub → <strong>Settings</strong></li>
-                        <li>Developer Settings → <strong>Personal access tokens</strong></li>
-                        <li><strong>Fine-grained tokens</strong> → Generate new token</li>
-                        <li>Repository access → <strong>Only select repositories</strong></li>
-                        <li>Permissions → Contents → <strong>Read-only</strong></li>
-                      </ol>
-                      <p style={{ marginTop: '6px', color: colors.gray[500] }}>
-                        ⚠️ Deploy Key(SSH)는 API 호출에 사용할 수 없습니다
-                      </p>
-                    </div>
-                  </div>
-                )}
+                <p style={{ fontSize: '13px', color: colors.gray[700], marginTop: spacing.sm, lineHeight: 1.6 }}>
+                  <strong>공개적으로 접근 가능한 URL</strong>만 추적할 수 있습니다.<br/>
+                  API 응답, 웹 페이지 등 인증 없이 데이터를 받을 수 있는 주소를 입력해주세요.
+                </p>
+                <p style={{ fontSize: '11px', color: colors.gray[500], marginTop: spacing.sm }}>
+                  예: Public API, Public GitHub 레포, 뉴스 페이지 등
+                </p>
               </div>
             )}
             
