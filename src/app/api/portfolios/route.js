@@ -56,6 +56,12 @@ export async function GET(request) {
         image_url: getImageUrl(portfolio.image_url, portfolio.title),
         tracking: tracking,
         weather_status: getWeatherStatus(tracking),
+        // 편집 시 사용할 플랫 필드
+        tracking_url: tracking?.url || null,
+        tracking_prompt: tracking?.logic_prompt || null,
+        auth_type: tracking?.auth_type || 'none',
+        last_status: tracking?.last_status || null,
+        last_checked_at: tracking?.last_checked_at || null,
       };
     });
 
