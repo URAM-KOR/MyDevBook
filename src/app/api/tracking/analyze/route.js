@@ -31,30 +31,41 @@ export async function POST(request) {
         apiKey: process.env.OPENAI_API_KEY,
       });
 
-      // 데이터 요약 (너무 길면 잘라서)
-      const truncatedData = data.substring(0, 3000);
+      // 데이터 요약 (더 많이 보내기 - GPT-4 turbo는 128k 토큰 지원)
+      const truncatedData = data.substring(0, 15000);
 
       const systemPrompt = targetKey 
-        ? `당신은 API 응답이나 웹 페이지 데이터를 분석하여 특정 값을 추출하는 전문가입니다.
-사용자가 "${targetKey}"에 대한 값을 찾고 있습니다.
-주어진 데이터에서 "${targetKey}"와 관련된 값을 찾아서 명확하게 알려주세요.
+        ? `당신은 API 응답, JSON, HTML, 웹 페이지 등 모든 형식의 데이터에서 특정 값을 추출하는 전문가입니다.
 
-응답 형식:
-- currentValue: 찾은 값 (예: "1,234개", "$45.67", "정상", "23.5%")
-- analysis: 한 줄 설명 (값이 어디서 왔는지, 무엇을 의미하는지)
+사용자가 찾는 값: "${targetKey}"
 
-JSON 형식으로만 응답하세요.`
-        : `당신은 API 응답이나 웹 페이지 데이터를 분석하여 핵심 정보를 추출하는 전문가입니다.
-주어진 데이터에서 가장 중요하고 추적할 만한 값을 찾아서 간결하게 설명해주세요.
+데이터가 HTML이라면:
+- 태그 안의 텍스트, 속성값, 메타데이터 등에서 찾으세요
+- 날짜, 숫자, 상태 등이 포함된 텍스트를 찾으세요
 
-응답 형식:
-- currentValue: 핵심 수치나 상태 (예: "스타 수: 1,234개", "가격: $45.67", "상태: 정상")
-- analysis: 한 줄 요약 설명
+데이터가 JSON이라면:
+- 관련된 키의 값을 찾으세요
 
-JSON 형식으로만 응답하세요.`;
+**반드시 값을 찾아서 응답하세요. "찾을 수 없다"고 하지 마세요.**
+데이터 어딘가에 관련 정보가 있을 것입니다.
+
+응답 형식 (JSON):
+{
+  "currentValue": "찾은 값 (예: 2024-12-10, 1234개, $45.67)",
+  "analysis": "어디서 찾았는지 한 줄 설명"
+}`
+        : `당신은 API 응답, JSON, HTML 등 모든 형식의 데이터에서 핵심 정보를 추출하는 전문가입니다.
+
+데이터에서 가장 중요하고 추적할 만한 값을 찾아주세요.
+
+응답 형식 (JSON):
+{
+  "currentValue": "핵심 값 (예: 1,234개, $45.67, 정상)",
+  "analysis": "한 줄 설명"
+}`;
 
       const completion = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -63,12 +74,12 @@ JSON 형식으로만 응답하세요.`;
           {
             role: 'user',
             content: targetKey 
-              ? `"${targetKey}" 값을 찾아주세요.\n\nURL: ${url}\n\n데이터:\n${truncatedData}`
+              ? `"${targetKey}"과 관련된 값을 데이터에서 찾아주세요. 반드시 찾아야 합니다.\n\nURL: ${url}\n\n데이터:\n${truncatedData}`
               : `URL: ${url}\n\n데이터:\n${truncatedData}`
           }
         ],
-        max_tokens: 300,
-        temperature: 0.3,
+        max_tokens: 500,
+        temperature: 0.2,
       });
 
       const responseText = completion.choices[0]?.message?.content || '';
