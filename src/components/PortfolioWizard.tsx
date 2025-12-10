@@ -189,7 +189,7 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
 
   const getProgressSteps = () => {
     if (!formData.tracking_url) return ['이름', 'URL'];
-    return ['이름', 'URL', '확인', '목표', '현재값', '알림조건'];
+    return ['이름', 'URL', 'URL 확인', '목표물', '목표값 확인', '알림조건'];
   };
 
   const renderStepContent = () => {
