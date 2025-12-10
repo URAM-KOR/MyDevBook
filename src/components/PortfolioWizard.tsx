@@ -64,7 +64,6 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
 
-  const totalSteps = formData.tracking_url ? 5 : 2;
   const isLastStep = currentStep === (formData.tracking_url ? STEPS.ALERT_GOAL : STEPS.URL);
   const isFirstStep = currentStep === STEPS.TITLE;
 
