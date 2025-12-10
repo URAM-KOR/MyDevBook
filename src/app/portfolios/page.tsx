@@ -31,7 +31,6 @@ export default function PortfoliosPage() {
     content: editingPortfolio.content || '',
     tracking_url: editingPortfolio.tracking_url || '',
     tracking_prompt: editingPortfolio.tracking_prompt || '',
-    auth_type: editingPortfolio.auth_type as 'none' | 'github' | 'bearer' || 'none',
   } : null;
 
   return (
