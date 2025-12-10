@@ -17,10 +17,18 @@ interface TestResult {
   success: boolean;
   step?: string;
   error?: string;
+  errorType?: string;
+  emoji?: string;
+  title?: string;
+  description?: string;
+  suggestion?: string;
+  detail?: string;
+  statusCode?: number;
   result?: {
     status: string;
     analysis: string;
     urlDataPreview: string;
+    urlDataLength?: number;
   };
 }
 
@@ -167,9 +175,9 @@ export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardP
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-                  <span style={{ fontSize: '24px' }}>{testResult.success ? '✅' : '❌'}</span>
+                  <span style={{ fontSize: '24px' }}>{testResult.success ? '✅' : (testResult.emoji || '❌')}</span>
                   <strong style={{ color: testResult.success ? '#059669' : '#dc2626' }}>
-                    {testResult.success ? '테스트 성공!' : '테스트 실패'}
+                    {testResult.success ? '테스트 성공!' : (testResult.title || '테스트 실패')}
                   </strong>
                 </div>
                 
@@ -180,7 +188,7 @@ export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardP
                     </p>
                     <details style={{ marginTop: spacing.sm }}>
                       <summary style={{ cursor: 'pointer', color: colors.gray[500] }}>
-                        API 응답 미리보기
+                        API 응답 미리보기 ({testResult.result.urlDataLength?.toLocaleString()} bytes)
                       </summary>
                       <pre style={{
                         marginTop: spacing.sm,
@@ -196,9 +204,52 @@ export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardP
                     </details>
                   </div>
                 ) : (
-                  <p style={{ fontSize: '14px', color: '#dc2626' }}>
-                    {testResult.error}
-                  </p>
+                  <div style={{ fontSize: '14px' }}>
+                    {/* 에러 타입별 상세 표시 */}
+                    {testResult.title && (
+                      <div style={{ marginBottom: spacing.sm }}>
+                        <span style={{ fontSize: '20px', marginRight: spacing.xs }}>{testResult.emoji}</span>
+                        <strong style={{ color: '#dc2626' }}>{testResult.title}</strong>
+                        {testResult.statusCode && (
+                          <span style={{ color: colors.gray[500], marginLeft: spacing.sm }}>
+                            (HTTP {testResult.statusCode})
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <p style={{ color: colors.gray[700], marginBottom: spacing.sm }}>
+                      {testResult.description || testResult.error}
+                    </p>
+                    {testResult.suggestion && (
+                      <p style={{ 
+                        color: colors.blue[600], 
+                        backgroundColor: colors.blue[50],
+                        padding: spacing.sm,
+                        borderRadius: '8px',
+                        fontSize: '13px',
+                      }}>
+                        💡 {testResult.suggestion}
+                      </p>
+                    )}
+                    {testResult.detail && (
+                      <details style={{ marginTop: spacing.sm }}>
+                        <summary style={{ cursor: 'pointer', color: colors.gray[400], fontSize: '12px' }}>
+                          상세 오류 정보
+                        </summary>
+                        <pre style={{
+                          marginTop: spacing.xs,
+                          padding: spacing.sm,
+                          backgroundColor: colors.gray[100],
+                          borderRadius: '8px',
+                          fontSize: '11px',
+                          overflow: 'auto',
+                          color: colors.gray[600],
+                        }}>
+                          {testResult.detail}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
                 )}
 
                 <button
