@@ -60,6 +60,8 @@ export function usePortfolios() {
           content: wizardData.content,
           tracking_url: wizardData.tracking_url,
           tracking_prompt: wizardData.tracking_prompt,
+          current_value: wizardData.current_value || null,
+          target_key: wizardData.content || null,
         }),
       });
 

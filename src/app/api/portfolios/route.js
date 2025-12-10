@@ -62,6 +62,8 @@ export async function GET(request) {
         auth_type: tracking?.auth_type || 'none',
         last_status: tracking?.last_status || null,
         last_checked_at: tracking?.last_checked_at || null,
+        current_value: tracking?.current_value || null,
+        target_key: tracking?.target_key || null,
       };
     });
 
@@ -88,7 +90,7 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { title, content, status, order, image_url, tracking_url, tracking_prompt, auth_token, auth_type } = body;
+    const { title, content, status, order, image_url, tracking_url, tracking_prompt, auth_token, auth_type, current_value, target_key } = body;
 
     if (!title) {
       return Response.json({ error: 'Title is required' }, { status: 400 });
@@ -111,15 +113,17 @@ export async function POST(request) {
       imageUrl: image_url || null,
     });
 
-    // 트래킹 정보가 있으면 함께 생성 (토큰 포함)
+    // 트래킹 정보가 있으면 함께 생성
     let tracking = null;
-    if (tracking_url && tracking_prompt) {
+    if (tracking_url) {
       tracking = PortfolioTracking.create({
         portfolioId: portfolio.id,
         url: tracking_url,
-        logicPrompt: tracking_prompt,
+        logicPrompt: tracking_prompt || null,
         authToken: auth_token || null,
         authType: auth_type || 'none',
+        currentValue: current_value || null,
+        targetKey: target_key || null,
       });
     }
 

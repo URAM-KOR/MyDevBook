@@ -7,18 +7,18 @@ class PortfolioTracking {
   static create(trackingData) {
     try {
       const id = uuidv4();
-      const { portfolioId, url, logicPrompt, authToken, authType } = trackingData;
+      const { portfolioId, url, logicPrompt, authToken, authType, currentValue, targetKey } = trackingData;
 
       // 토큰 암호화
       const encryptedToken = authToken ? encryptToken(authToken) : null;
 
       const stmt = db.prepare(`
-        INSERT INTO portfolio_trackings (id, portfolio_id, url, logic_prompt, auth_token, auth_type)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO portfolio_trackings (id, portfolio_id, url, logic_prompt, auth_token, auth_type, current_value, target_key)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
-      stmt.run(id, portfolioId, url, logicPrompt, encryptedToken, authType || 'none');
-      logger.logDatabase('INSERT', 'portfolio_trackings', { id, portfolioId, url, hasAuth: !!authToken });
+      stmt.run(id, portfolioId, url, logicPrompt, encryptedToken, authType || 'none', currentValue || null, targetKey || null);
+      logger.logDatabase('INSERT', 'portfolio_trackings', { id, portfolioId, url, hasAuth: !!authToken, currentValue });
 
       return this.findById(id);
     } catch (error) {
