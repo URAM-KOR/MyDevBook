@@ -17,9 +17,9 @@ interface PortfolioWizardProps {
 
 export interface PortfolioFormData {
   title: string;
-  content: string;
+  content: string;          // 목표 키 (추적할 대상)
   tracking_url: string;
-  tracking_prompt: string;  // 알림 목표
+  tracking_prompt: string;  // 알림 조건
   current_value?: string;   // GPT가 분석한 현재 값
 }
 
@@ -41,9 +41,10 @@ interface AnalysisResult {
 const STEPS = {
   TITLE: 0,
   URL: 1,
-  URL_CHECK: 2,      // URL 접근 확인 + GPT 현재값 분석
-  CONTENT: 3,        // 목표
-  ALERT_GOAL: 4,     // 알림 목표 입력
+  URL_CHECK: 2,        // URL 접근 확인
+  TARGET_KEY: 3,       // 목표 키 입력 (추적할 대상)
+  TARGET_VALUE: 4,     // 현재 목표값 확인 (GPT 분석)
+  ALERT_CONDITION: 5,  // 알림 조건 입력
 };
 
 export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEditing }: PortfolioWizardProps) {
@@ -64,14 +65,13 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
 
-  const isLastStep = currentStep === (formData.tracking_url ? STEPS.ALERT_GOAL : STEPS.URL);
+  const isLastStep = currentStep === (formData.tracking_url ? STEPS.ALERT_CONDITION : STEPS.URL);
   const isFirstStep = currentStep === STEPS.TITLE;
 
   // URL 접근 확인
   const checkUrl = async () => {
     setCheckingUrl(true);
     setUrlCheckResult(null);
-    setAnalysisResult(null);
 
     try {
       const token = localStorage.getItem('token');
@@ -86,11 +86,6 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
 
       const data = await response.json();
       setUrlCheckResult(data);
-      
-      // URL 접근 성공하면 자동으로 GPT 분석 시작
-      if (data.success) {
-        analyzeCurrentValue(data.data);
-      }
     } catch (error) {
       setUrlCheckResult({ success: false, error: '접근 확인 중 오류가 발생했습니다.' });
     } finally {
@@ -98,9 +93,12 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
     }
   };
 
-  // GPT로 현재 값 분석
-  const analyzeCurrentValue = async (urlData: string) => {
+  // GPT로 목표값 분석
+  const analyzeTargetValue = async () => {
+    if (!urlCheckResult?.data) return;
+    
     setAnalyzing(true);
+    setAnalysisResult(null);
 
     try {
       const token = localStorage.getItem('token');
@@ -112,7 +110,8 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
         },
         body: JSON.stringify({ 
           url: formData.tracking_url,
-          data: urlData,
+          data: urlCheckResult.data,
+          targetKey: formData.content,  // 목표 키
         }),
       });
 
@@ -138,41 +137,37 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
     setDirection('next');
     
     if (currentStep === STEPS.TITLE) {
-      // 이름 → URL
       setCurrentStep(STEPS.URL);
     } else if (currentStep === STEPS.URL && formData.tracking_url) {
-      // URL 입력 후 → URL 체크 단계로
       setCurrentStep(STEPS.URL_CHECK);
       setTimeout(checkUrl, 300);
     } else if (currentStep === STEPS.URL && !formData.tracking_url) {
-      // URL 없이 완료
       onSubmit(formData);
     } else if (currentStep === STEPS.URL_CHECK) {
-      // URL 체크 성공 후 → 목표 입력으로
-      setCurrentStep(STEPS.CONTENT);
-    } else if (currentStep === STEPS.CONTENT) {
-      // 목표 → 알림 목표
-      setCurrentStep(STEPS.ALERT_GOAL);
-    } else {
-      setCurrentStep(prev => prev + 1);
+      setCurrentStep(STEPS.TARGET_KEY);
+    } else if (currentStep === STEPS.TARGET_KEY) {
+      setCurrentStep(STEPS.TARGET_VALUE);
+      setTimeout(analyzeTargetValue, 300);
+    } else if (currentStep === STEPS.TARGET_VALUE) {
+      setCurrentStep(STEPS.ALERT_CONDITION);
     }
   };
 
   const handlePrev = () => {
     if (!isFirstStep) {
       setDirection('prev');
-      if (currentStep === STEPS.ALERT_GOAL) {
-        setCurrentStep(STEPS.CONTENT);
-      } else if (currentStep === STEPS.CONTENT) {
+      if (currentStep === STEPS.ALERT_CONDITION) {
+        setCurrentStep(STEPS.TARGET_VALUE);
+      } else if (currentStep === STEPS.TARGET_VALUE) {
+        setCurrentStep(STEPS.TARGET_KEY);
+        setAnalysisResult(null);
+      } else if (currentStep === STEPS.TARGET_KEY) {
         setCurrentStep(STEPS.URL_CHECK);
       } else if (currentStep === STEPS.URL_CHECK) {
         setCurrentStep(STEPS.URL);
         setUrlCheckResult(null);
-        setAnalysisResult(null);
       } else if (currentStep === STEPS.URL) {
         setCurrentStep(STEPS.TITLE);
-      } else {
-        setCurrentStep(prev => prev - 1);
       }
     }
   };
@@ -186,13 +181,15 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
 
   const canProceed = () => {
     if (currentStep === STEPS.TITLE) return formData.title.trim() !== '';
-    if (currentStep === STEPS.URL_CHECK) return urlCheckResult?.success && analysisResult?.success;
+    if (currentStep === STEPS.URL_CHECK) return urlCheckResult?.success;
+    if (currentStep === STEPS.TARGET_KEY) return formData.content.trim() !== '';
+    if (currentStep === STEPS.TARGET_VALUE) return analysisResult?.success;
     return true;
   };
 
   const getProgressSteps = () => {
     if (!formData.tracking_url) return ['이름', 'URL'];
-    return ['이름', 'URL', '확인', '목표', '알림 목표'];
+    return ['이름', 'URL', '확인', '목표', '현재값', '알림조건'];
   };
 
   const renderStepContent = () => {
@@ -211,22 +208,6 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
               style={styles.input}
               className="focus:border-blue-500"
             />
-          </div>
-        );
-
-      case STEPS.CONTENT:
-        return (
-          <div>
-            <h3 style={styles.stepTitle}>목표 또는 목적</h3>
-            <textarea
-              autoFocus
-              value={formData.content}
-              onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              placeholder="예: 스타 1000개 달성하기"
-              style={{ ...styles.input, minHeight: '100px', resize: 'none' }}
-              className="focus:border-blue-500"
-            />
-            <p style={styles.hint}>💡 나중에 설정하려면 비워두고 다음으로</p>
           </div>
         );
 
@@ -259,9 +240,8 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
       case STEPS.URL_CHECK:
         return (
           <div>
-            <h3 style={styles.stepTitle}>🔍 URL 확인 중</h3>
+            <h3 style={styles.stepTitle}>🔍 URL 접근 확인</h3>
             
-            {/* URL 접근 확인 */}
             <div style={styles.checkSection}>
               <div style={styles.checkHeader}>
                 <span style={{ fontSize: '18px' }}>
@@ -272,9 +252,19 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
               {checkingUrl ? (
                 <p style={styles.checkStatus}>접근 확인 중...</p>
               ) : urlCheckResult?.success ? (
-                <p style={styles.checkStatus}>
-                  접근 성공! ({urlCheckResult.dataLength?.toLocaleString()} bytes)
-                </p>
+                <div>
+                  <p style={styles.checkStatus}>
+                    ✅ 접근 성공! ({urlCheckResult.dataLength?.toLocaleString()} bytes)
+                  </p>
+                  <details style={{ marginTop: spacing.sm }}>
+                    <summary style={{ cursor: 'pointer', fontSize: '12px', color: colors.gray[500] }}>
+                      응답 미리보기
+                    </summary>
+                    <pre style={styles.previewBox}>
+                      {urlCheckResult.data?.substring(0, 300)}...
+                    </pre>
+                  </details>
+                </div>
               ) : (
                 <p style={{ ...styles.checkStatus, color: '#dc2626' }}>
                   {urlCheckResult?.error || '접근할 수 없습니다'}
@@ -282,41 +272,7 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
               )}
             </div>
 
-            {/* GPT 분석 */}
-            {urlCheckResult?.success && (
-              <div style={styles.checkSection}>
-                <div style={styles.checkHeader}>
-                  <span style={{ fontSize: '18px' }}>
-                    {analyzing ? '⏳' : analysisResult?.success ? '✅' : '❌'}
-                  </span>
-                  <strong>현재 상태 분석 (GPT)</strong>
-                </div>
-                {analyzing ? (
-                  <p style={styles.checkStatus}>GPT가 분석 중...</p>
-                ) : analysisResult?.success ? (
-                  <div style={styles.analysisBox}>
-                    <p style={{ margin: 0, fontSize: '14px', color: colors.gray[800] }}>
-                      <strong>📊 현재 값:</strong>
-                    </p>
-                    <p style={{ margin: '8px 0 0', fontSize: '16px', color: colors.blue[600] }}>
-                      {analysisResult.currentValue}
-                    </p>
-                    {analysisResult.analysis && (
-                      <p style={{ margin: '8px 0 0', fontSize: '13px', color: colors.gray[600] }}>
-                        {analysisResult.analysis}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p style={{ ...styles.checkStatus, color: '#dc2626' }}>
-                    {analysisResult?.error || '분석할 수 없습니다'}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* 재시도 버튼 */}
-            {!checkingUrl && !analyzing && (
+            {!checkingUrl && (
               <button onClick={checkUrl} style={styles.retryButton}>
                 🔄 다시 확인
               </button>
@@ -324,10 +280,93 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
           </div>
         );
 
-      case STEPS.ALERT_GOAL:
+      case STEPS.TARGET_KEY:
         return (
           <div>
-            <h3 style={styles.stepTitle}>🔔 알림 목표</h3>
+            <h3 style={styles.stepTitle}>🎯 추적할 목표</h3>
+            <p style={{ fontSize: '14px', color: colors.gray[600], marginBottom: spacing.md }}>
+              어떤 값을 추적하고 싶으세요?
+            </p>
+            <input
+              autoFocus
+              type="text"
+              value={formData.content}
+              onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+              onKeyDown={handleKeyDown}
+              placeholder="예: 스타 수, 가격, 상태, 조회수..."
+              style={styles.input}
+              className="focus:border-blue-500"
+            />
+            <p style={styles.hint}>
+              💡 GPT가 URL 데이터에서 해당 값을 찾아드립니다
+            </p>
+          </div>
+        );
+
+      case STEPS.TARGET_VALUE:
+        return (
+          <div>
+            <h3 style={styles.stepTitle}>📊 현재 값 확인</h3>
+            
+            <div style={styles.targetInfo}>
+              <span>🎯 추적 목표:</span>
+              <strong>{formData.content}</strong>
+            </div>
+
+            <div style={styles.checkSection}>
+              <div style={styles.checkHeader}>
+                <span style={{ fontSize: '18px' }}>
+                  {analyzing ? '⏳' : analysisResult?.success ? '✅' : '❌'}
+                </span>
+                <strong>GPT 분석</strong>
+              </div>
+              {analyzing ? (
+                <p style={styles.checkStatus}>"{formData.content}" 값을 분석 중...</p>
+              ) : analysisResult?.success ? (
+                <div style={styles.analysisBox}>
+                  <p style={{ margin: 0, fontSize: '14px', color: colors.gray[600] }}>
+                    현재 값:
+                  </p>
+                  <p style={{ margin: '8px 0 0', fontSize: '20px', fontWeight: 600, color: colors.blue[600] }}>
+                    {analysisResult.currentValue}
+                  </p>
+                  {analysisResult.analysis && (
+                    <p style={{ margin: '8px 0 0', fontSize: '13px', color: colors.gray[500] }}>
+                      {analysisResult.analysis}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p style={{ ...styles.checkStatus, color: '#dc2626' }}>
+                  {analysisResult?.error || '분석할 수 없습니다'}
+                </p>
+              )}
+            </div>
+
+            {!analyzing && (
+              <button onClick={analyzeTargetValue} style={styles.retryButton}>
+                🔄 다시 분석
+              </button>
+            )}
+          </div>
+        );
+
+      case STEPS.ALERT_CONDITION:
+        return (
+          <div>
+            <h3 style={styles.stepTitle}>🔔 알림 조건</h3>
+            
+            <div style={styles.summaryBox}>
+              <div style={styles.summaryRow}>
+                <span>🎯 목표:</span>
+                <strong>{formData.content}</strong>
+              </div>
+              <div style={styles.summaryRow}>
+                <span>📊 현재:</span>
+                <strong style={{ color: colors.blue[600] }}>{formData.current_value}</strong>
+              </div>
+            </div>
+
             <p style={{ fontSize: '14px', color: colors.gray[600], marginBottom: spacing.md }}>
               어떤 조건일 때 알림을 받고 싶으세요?
             </p>
@@ -335,20 +374,12 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
               autoFocus
               value={formData.tracking_prompt}
               onChange={(e) => setFormData({ ...formData, tracking_prompt: e.target.value })}
-              placeholder="예: 스타 수가 100개를 넘으면 알림"
-              style={{ ...styles.input, minHeight: '100px', resize: 'none' }}
+              placeholder="예: 100개 이상이면 알림, 가격이 50달러 이하면 알림"
+              style={{ ...styles.input, minHeight: '80px', resize: 'none' }}
               className="focus:border-blue-500"
             />
-            {formData.current_value && (
-              <div style={styles.currentValueBox}>
-                <span style={{ fontSize: '14px' }}>📊</span>
-                <span style={{ fontSize: '13px', color: colors.gray[600] }}>
-                  현재 값: <strong style={{ color: colors.blue[600] }}>{formData.current_value}</strong>
-                </span>
-              </div>
-            )}
             <p style={styles.hint}>
-              💡 배치로 주기적으로 확인하여 목표 도달 시 알림을 보내드립니다
+              💡 주기적으로 확인하여 조건 충족 시 알림을 보내드립니다
             </p>
           </div>
         );
@@ -361,7 +392,7 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
   return (
     <div style={{ padding: spacing.xl, paddingTop: '48px' }}>
       {/* Progress indicator */}
-      <div style={{ display: 'flex', gap: spacing.sm, marginBottom: spacing.xl }}>
+      <div style={{ display: 'flex', gap: spacing.xs, marginBottom: spacing.xl }}>
         {getProgressSteps().map((label, index) => (
           <div key={index} style={{ flex: 1, textAlign: 'center' }}>
             <div
@@ -373,7 +404,11 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
                 marginBottom: '4px',
               }}
             />
-            <span style={{ fontSize: '10px', color: index <= currentStep ? colors.blue[500] : colors.gray[400] }}>
+            <span style={{ 
+              fontSize: '9px', 
+              color: index <= currentStep ? colors.blue[500] : colors.gray[400],
+              whiteSpace: 'nowrap',
+            }}>
               {label}
             </span>
           </div>
@@ -384,7 +419,7 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
       <div
         key={currentStep}
         style={{
-          minHeight: '280px',
+          minHeight: '300px',
           animation: `slideIn${direction === 'next' ? 'Right' : 'Left'} 300ms ease-out`,
         }}
       >
@@ -476,20 +511,43 @@ const styles = {
     color: colors.gray[600],
     margin: 0,
   } as React.CSSProperties,
+  previewBox: {
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    backgroundColor: colors.gray[100],
+    borderRadius: '8px',
+    fontSize: '11px',
+    overflow: 'auto',
+    maxHeight: '100px',
+  } as React.CSSProperties,
   analysisBox: {
     padding: spacing.md,
     backgroundColor: '#e3f2fd',
     borderRadius: '8px',
     marginTop: spacing.sm,
   } as React.CSSProperties,
-  currentValueBox: {
-    marginTop: spacing.md,
+  targetInfo: {
     padding: spacing.sm,
     backgroundColor: colors.gray[100],
     borderRadius: '8px',
+    marginBottom: spacing.lg,
     display: 'flex',
     alignItems: 'center',
     gap: spacing.sm,
+    fontSize: '14px',
+  } as React.CSSProperties,
+  summaryBox: {
+    padding: spacing.md,
+    backgroundColor: colors.gray[50],
+    borderRadius: '12px',
+    marginBottom: spacing.lg,
+  } as React.CSSProperties,
+  summaryRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: spacing.sm,
+    fontSize: '14px',
+    marginBottom: spacing.xs,
   } as React.CSSProperties,
   retryButton: {
     padding: `${spacing.xs} ${spacing.md}`,
