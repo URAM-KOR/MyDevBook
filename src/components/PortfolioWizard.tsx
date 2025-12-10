@@ -406,7 +406,8 @@ export default function PortfolioWizard({ onSubmit, onCancel }: PortfolioWizardP
                     }}>
                       <p style={{ fontWeight: 600, marginBottom: '4px' }}>📋 토큰 발급 방법:</p>
                       <ol style={{ margin: 0, paddingLeft: '16px', lineHeight: 1.6 }}>
-                        <li>GitHub → Settings → Developer settings</li>
+                        <li>GitHub → <strong>Settings</strong></li>
+                        <li>Developer Settings → <strong>Personal access tokens</strong></li>
                         <li><strong>Fine-grained tokens</strong> → Generate new token</li>
                         <li>Repository access → <strong>Only select repositories</strong></li>
                         <li>Permissions → Contents → <strong>Read-only</strong></li>
