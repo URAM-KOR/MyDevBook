@@ -147,16 +147,17 @@ export async function POST(request) {
       // 인증 헤더 설정
       const headers = {
         'User-Agent': 'MyDevBook Tracker/1.0',
-        'Accept': 'application/json, text/plain, */*',
+        'Accept': 'application/json, text/html, text/plain, */*',
       };
       
-      // GitHub 토큰 또는 Bearer 토큰 추가
-      if (auth_token) {
-        if (auth_type === 'github') {
-          headers['Authorization'] = `Bearer ${auth_token}`;
-        } else if (auth_type === 'bearer') {
-          headers['Authorization'] = `Bearer ${auth_token}`;
-        }
+      // GitHub API에만 토큰 적용 (웹 페이지는 토큰 인증 안됨)
+      const isGitHubApi = url.includes('api.github.com');
+      
+      if (auth_token && isGitHubApi) {
+        headers['Authorization'] = `Bearer ${auth_token}`;
+      } else if (auth_token && auth_type === 'bearer' && !url.includes('github.com')) {
+        // 일반 Bearer 토큰 (GitHub 외 API)
+        headers['Authorization'] = `Bearer ${auth_token}`;
       }
       
       fetchResponse = await fetch(url, {
