@@ -29,6 +29,10 @@ self.addEventListener('push', (event) => {
     icon: '/icon-192.png',
     badge: '/badge-72.png',
     vibrate: [200, 100, 200],
+    tag: 'mydevbook-' + Date.now(), // 고유 태그로 중복 방지
+    renotify: true, // 같은 태그여도 다시 알림
+    requireInteraction: false, // 자동으로 사라지게
+    silent: false, // 소리 활성화
     data: {
       url: data.url || '/',
       portfolioId: data.portfolioId,
@@ -39,6 +43,7 @@ self.addEventListener('push', (event) => {
     ],
   };
 
+  // 포커스 상태와 관계없이 항상 알림 표시
   event.waitUntil(
     self.registration.showNotification(data.title, options)
   );
