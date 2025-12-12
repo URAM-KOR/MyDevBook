@@ -82,11 +82,11 @@ class PortfolioTracking {
 
   static findPendingChecks() {
     try {
-      // 마지막 확인이 없거나 1시간 이상 지난 항목들
+      // 마지막 확인이 없거나 1분 이상 지난 항목들 (테스트용, 프로덕션에서는 1시간으로 변경)
       const stmt = db.prepare(`
         SELECT * FROM portfolio_trackings 
         WHERE last_checked_at IS NULL 
-           OR datetime(last_checked_at) < datetime('now', '-1 hour')
+           OR datetime(last_checked_at) < datetime('now', '-1 minute')
         ORDER BY last_checked_at ASC NULLS FIRST
       `);
       const trackings = stmt.all();
