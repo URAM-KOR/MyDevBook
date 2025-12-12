@@ -104,9 +104,43 @@ async function checkTracking(tracking) {
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
     const page = await browser.newPage();
+    
+    // 캐시 비활성화 + User-Agent 설정
+    await page.setCacheEnabled(false);
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
     await page.goto(tracking.url, { waitUntil: 'networkidle2', timeout: 30000 });
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    pageData = await page.evaluate(() => document.body.innerText);
+    // 동적 페이지 렌더링 대기
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // 모든 텍스트 추출 (Shadow DOM 포함, 범용)
+    pageData = await page.evaluate(() => {
+      function getAllText(node) {
+        let text = '';
+        
+        // Shadow DOM이 있으면 그 안의 텍스트도 추출
+        if (node.shadowRoot) {
+          text += getAllText(node.shadowRoot);
+        }
+        
+        // 자식 노드 순회
+        for (const child of node.childNodes) {
+          if (child.nodeType === Node.TEXT_NODE) {
+            text += child.textContent;
+          } else if (child.nodeType === Node.ELEMENT_NODE) {
+            // script, style, noscript 태그는 제외 (사용자에게 안 보이는 코드)
+            const tagName = child.tagName?.toLowerCase();
+            if (tagName !== 'script' && tagName !== 'style' && tagName !== 'noscript') {
+              text += getAllText(child);
+            }
+          }
+        }
+        
+        return text;
+      }
+      
+      return getAllText(document.body);
+    });
     await browser.close();
   } catch (error) {
     return { trackingId: tracking.id, error: `Failed to fetch: ${error.message}` };
