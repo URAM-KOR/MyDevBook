@@ -48,10 +48,7 @@ export async function POST(request) {
       try {
         const pushSubscription = {
           endpoint: sub.endpoint,
-          keys: {
-            p256dh: sub.p256dh,
-            auth: sub.auth,
-          },
+          keys: sub.keys,
         };
 
         await webpush.sendNotification(pushSubscription, notificationPayload);

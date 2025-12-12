@@ -33,8 +33,7 @@ export async function POST(request) {
     const saved = PushSubscription.create({
       userId: payload.userId,
       endpoint: subscription.endpoint,
-      p256dh: subscription.keys?.p256dh,
-      auth: subscription.keys?.auth,
+      keys: subscription.keys,
     });
 
     logger.info('Push subscription saved', { userId: payload.userId });
