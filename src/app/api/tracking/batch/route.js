@@ -119,20 +119,34 @@ async function checkTracking(tracking) {
   const targetKey = tracking.target_key || '핵심 값';
   const truncatedData = pageData.substring(0, 30000);
 
+  const systemPrompt = `당신은 텍스트에서 특정 값을 정확하게 추출하는 전문가입니다.
+
+**중요: 데이터에 있는 값을 그대로 복사해서 반환하세요. 절대 추측하거나 변환하지 마세요.**
+
+사용자가 찾는 값: "${targetKey}"
+
+규칙:
+1. 데이터에서 "${targetKey}"와 관련된 부분을 찾으세요
+2. 찾은 값을 **있는 그대로** 복사하세요 (예: "4 days ago"면 "4 days ago"로)
+3. 번역하거나 변환하지 마세요
+4. 가장 최신/대표적인 값을 선택하세요
+
+응답 형식 (JSON만, 다른 텍스트 없이):
+{"currentValue": "데이터에서 찾은 원본 값"}`;
+
   const completion = await openai.chat.completions.create({
     model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
     messages: [
       {
         role: 'system',
-        content: `데이터에서 "${targetKey}" 값을 찾아서 그대로 반환하세요.
-응답: {"currentValue": "찾은 값"}`
+        content: systemPrompt
       },
       {
         role: 'user',
-        content: truncatedData
+        content: `"${targetKey}"을 찾아서 데이터에 있는 그대로 반환하세요.\n\n데이터:\n${truncatedData}`
       }
     ],
-    max_tokens: 100,
+    max_tokens: 200,
     temperature: 0,
   });
 
@@ -148,9 +162,9 @@ async function checkTracking(tracking) {
     newValue = responseText;
   }
 
-  // 3. 알림 조건 확인
+  // 3. 알림 조건 확인 (값 변경 여부와 관계없이 항상 체크)
   let shouldAlert = false;
-  if (tracking.logic_prompt && newValue && tracking.current_value !== newValue) {
+  if (tracking.logic_prompt && newValue) {
     // GPT로 알림 조건 체크
     const alertCheck = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -202,7 +216,7 @@ async function sendPushNotification(userId, payload) {
         await webpush.sendNotification(
           {
             endpoint: sub.endpoint,
-            keys: { p256dh: sub.p256dh, auth: sub.auth },
+            keys: sub.keys,
           },
           JSON.stringify(payload)
         );
