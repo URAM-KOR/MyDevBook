@@ -263,7 +263,7 @@ async function main() {
     logger.info('Batch tracking check started');
 
     // 체크가 필요한 트래킹 목록 조회
-    const trackings = PortfolioTracking.findPendingChecks();
+    const trackings = await PortfolioTracking.findPendingChecks();
     
     logger.info(`Found ${trackings.length} trackings to check`);
 
@@ -276,7 +276,7 @@ async function main() {
         
         // 알림 조건 충족 시 알림 생성 + Push 전송
         if (result.shouldAlert) {
-          Notification.create({
+          await Notification.create({
             userId: result.userId,
             portfolioId: tracking.portfolio_id,
             type: 'alert',
@@ -299,17 +299,17 @@ async function main() {
         }
         
         // 상태 업데이트
-        PortfolioTracking.updateStatus(tracking.id, result.newValue ? 'checked' : 'error');
+        await PortfolioTracking.updateStatus(tracking.id, result.newValue ? 'checked' : 'error');
         
         // current_value 업데이트
         if (result.newValue) {
-          db.prepare('UPDATE portfolio_trackings SET current_value = ? WHERE id = ?')
+          await db.prepare('UPDATE portfolio_trackings SET current_value = ? WHERE id = ?')
             .run(result.newValue, tracking.id);
         }
         
         // weather_status 업데이트 (Portfolio 테이블)
         if (result.weatherStatus) {
-          db.prepare('UPDATE portfolios SET weather_status = ? WHERE id = ?')
+          await db.prepare('UPDATE portfolios SET weather_status = ? WHERE id = ?')
             .run(result.weatherStatus, tracking.portfolio_id);
         }
         
