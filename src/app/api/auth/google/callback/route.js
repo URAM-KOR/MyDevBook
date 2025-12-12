@@ -1,25 +1,28 @@
 export async function GET(request) {
-  try {
-    // 동적 import로 CommonJS 모듈 로드
-    const { OAuth2Client } = await import('google-auth-library');
-    const User = (await import('@/models/User')).default;
-    const { createToken } = await import('@/utils/jwt');
-    const logger = (await import('@/utils/logger')).default;
+  // 동적 import로 CommonJS 모듈 로드 (try 밖에서)
+  const { OAuth2Client } = await import('google-auth-library');
+  const User = (await import('@/models/User')).default;
+  const { createToken } = await import('@/utils/jwt');
+  const logger = (await import('@/utils/logger')).default;
 
+  // 앱 기본 URL (환경변수에서 가져오기)
+  const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+
+  try {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
 
     if (!code) {
-      return Response.redirect(new URL('/?error=no_code', request.url).toString());
+      return Response.redirect(`${appUrl}/?error=no_code`);
     }
 
     const clientId = process.env.GOOGLE_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/auth/google/callback';
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `${appUrl}/api/auth/google/callback`;
 
     if (!clientId || !clientSecret) {
       logger.error('Google OAuth credentials not configured');
-      return Response.redirect(new URL('/?error=config', request.url).toString());
+      return Response.redirect(`${appUrl}/?error=config`);
     }
 
     // OAuth2 클라이언트 생성
@@ -66,7 +69,7 @@ export async function GET(request) {
     });
 
     // 토큰과 사용자 정보를 쿼리 파라미터로 전달하여 리디렉션
-    const frontendUrl = new URL('/', request.url);
+    const frontendUrl = new URL('/', appUrl);
     frontendUrl.searchParams.set('token', token);
     frontendUrl.searchParams.set('user', JSON.stringify({
       id: user.id,
@@ -79,7 +82,9 @@ export async function GET(request) {
     return Response.redirect(frontendUrl.toString());
   } catch (error) {
     logger.logError(error, { endpoint: '/api/auth/google/callback' });
-    return Response.redirect(new URL('/?error=auth_failed', request.url).toString());
+    return Response.redirect(`${appUrl}/?error=auth_failed`);
   }
 }
 
+// 빌드 시 정적 생성 방지
+export const dynamic = 'force-dynamic';
