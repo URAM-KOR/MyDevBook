@@ -79,6 +79,19 @@ async function checkTracking(tracking) {
     await page.goto(tracking.url, { waitUntil: 'networkidle2', timeout: 30000 });
     // 동적 페이지 렌더링 대기
     await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // GitHub 저장소일 경우: 마지막 커밋 시간 힌트 추가 (relative-time)
+    let githubCommitHint = '';
+    if (tracking.url.includes('github.com')) {
+      try {
+        const commitTime = await page.$eval('relative-time', el => el.innerText.trim());
+        if (commitTime) {
+          githubCommitHint = `LATEST_COMMIT_TIME: ${commitTime}\n`;
+        }
+      } catch (e) {
+        // 힌트 추출 실패 시 무시
+      }
+    }
     
     // 모든 텍스트 추출 (Shadow DOM 포함, 범용)
     pageData = await page.evaluate(() => {
@@ -108,6 +121,7 @@ async function checkTracking(tracking) {
       
       return getAllText(document.body);
     });
+    pageData = `${githubCommitHint}${pageData}`;
     await browser.close();
   } catch (error) {
     return { trackingId: tracking.id, error: `Failed to fetch: ${error.message}` };
