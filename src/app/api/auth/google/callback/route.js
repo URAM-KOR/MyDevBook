@@ -42,11 +42,11 @@ export async function GET(request) {
     const { sub: providerId, name, email, picture } = payload;
 
     // 기존 사용자 확인 또는 새 사용자 생성
-    let user = User.findByProviderId(providerId);
+    let user = await User.findByProviderId(providerId);
     
     if (!user) {
       // 새 사용자 생성
-      user = User.create({
+      user = await User.create({
         name,
         email,
         providerId,
@@ -56,7 +56,7 @@ export async function GET(request) {
     } else {
       // 기존 사용자 정보 업데이트 (이름이 변경되었을 수 있음)
       if (user.name !== name) {
-        user = User.update(user.id, { name });
+        user = await User.update(user.id, { name });
         logger.info('User updated', { userId: user.id });
       }
     }
