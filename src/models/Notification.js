@@ -3,33 +3,35 @@ const logger = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
 
 class Notification {
-  static create(notificationData) {
+  static async create(notificationData) {
     try {
       const id = uuidv4();
-      const { userId, trackingId, type, payload = {} } = notificationData;
+      const { userId, portfolioId, trackingId, type, title, message, payload = {} } = notificationData;
 
       const stmt = db.prepare(`
-        INSERT INTO notifications (id, user_id, tracking_id, type, payload)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO notifications (id, user_id, portfolio_id, tracking_id, type, title, message, payload)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `);
 
       const payloadJson = JSON.stringify(payload);
-      stmt.run(id, userId, trackingId, type, payloadJson);
+      await stmt.run(id, userId, portfolioId || null, trackingId || null, type, title || null, message || null, payloadJson);
       logger.logDatabase('INSERT', 'notifications', { id, userId, type });
 
-      return this.findById(id);
+      return await this.findById(id);
     } catch (error) {
       logger.logError(error, { model: 'Notification', operation: 'create' });
       throw error;
     }
   }
 
-  static findById(id) {
+  static async findById(id) {
     try {
-      const stmt = db.prepare('SELECT * FROM notifications WHERE id = ?');
-      const notification = stmt.get(id);
+      const stmt = db.prepare('SELECT * FROM notifications WHERE id = $1');
+      const notification = await stmt.get(id);
       if (notification && notification.payload) {
-        notification.payload = JSON.parse(notification.payload);
+        notification.payload = typeof notification.payload === 'string' 
+          ? JSON.parse(notification.payload) 
+          : notification.payload;
       }
       return notification || null;
     } catch (error) {
@@ -38,30 +40,34 @@ class Notification {
     }
   }
 
-  static findByUserId(userId, options = {}) {
+  static async findByUserId(userId, options = {}) {
     try {
       const { unreadOnly = false, limit = null } = options;
-      let query = 'SELECT * FROM notifications WHERE user_id = ?';
+      let query = 'SELECT * FROM notifications WHERE user_id = $1';
       const params = [userId];
+      let paramIndex = 2;
 
       if (unreadOnly) {
-        query += ' AND read = 0';
+        query += ` AND read = $${paramIndex++}`;
+        params.push(false);
       }
 
       query += ' ORDER BY created_at DESC';
 
       if (limit) {
-        query += ' LIMIT ?';
+        query += ` LIMIT $${paramIndex}`;
         params.push(limit);
       }
 
-      const stmt = db.prepare(query);
-      const notifications = stmt.all(...params);
+      const result = await db.query(query, params);
+      const notifications = result.rows;
 
       // payload JSON 파싱
       return notifications.map(notif => {
         if (notif.payload) {
-          notif.payload = JSON.parse(notif.payload);
+          notif.payload = typeof notif.payload === 'string' 
+            ? JSON.parse(notif.payload) 
+            : notif.payload;
         }
         return notif;
       });
@@ -71,46 +77,46 @@ class Notification {
     }
   }
 
-  static markAsRead(id) {
+  static async markAsRead(id) {
     try {
       const stmt = db.prepare(`
         UPDATE notifications 
-        SET read = 1, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
+        SET read = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $2
       `);
 
-      stmt.run(id);
+      await stmt.run(true, id);
       logger.logDatabase('UPDATE', 'notifications', { id, action: 'markAsRead' });
 
-      return this.findById(id);
+      return await this.findById(id);
     } catch (error) {
       logger.logError(error, { model: 'Notification', operation: 'markAsRead', id });
       throw error;
     }
   }
 
-  static markAsSent(id) {
+  static async markAsSent(id) {
     try {
       const stmt = db.prepare(`
         UPDATE notifications 
         SET sent_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
+        WHERE id = $1
       `);
 
-      stmt.run(id);
+      await stmt.run(id);
       logger.logDatabase('UPDATE', 'notifications', { id, action: 'markAsSent' });
 
-      return this.findById(id);
+      return await this.findById(id);
     } catch (error) {
       logger.logError(error, { model: 'Notification', operation: 'markAsSent', id });
       throw error;
     }
   }
 
-  static delete(id) {
+  static async delete(id) {
     try {
-      const stmt = db.prepare('DELETE FROM notifications WHERE id = ?');
-      const result = stmt.run(id);
+      const stmt = db.prepare('DELETE FROM notifications WHERE id = $1');
+      const result = await stmt.run(id);
       logger.logDatabase('DELETE', 'notifications', { id, changes: result.changes });
       return result.changes > 0;
     } catch (error) {
@@ -121,4 +127,3 @@ class Notification {
 }
 
 module.exports = Notification;
-

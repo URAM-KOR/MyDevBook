@@ -17,7 +17,7 @@ export async function GET(request) {
     }
 
     // 사용자 정보 조회
-    const user = User.findById(payload.userId);
+    const user = await User.findById(payload.userId);
     if (!user) {
       return Response.json({ error: 'User not found' }, { status: 404 });
     }

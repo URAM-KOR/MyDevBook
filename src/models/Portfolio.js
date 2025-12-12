@@ -3,30 +3,30 @@ const logger = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
 
 class Portfolio {
-  static create(portfolioData) {
+  static async create(portfolioData) {
     try {
       const id = uuidv4();
       const { userId, title, content, status = 'active', order = 0, imageUrl } = portfolioData;
 
       const stmt = db.prepare(`
         INSERT INTO portfolios (id, user_id, title, content, status, "order", image_url)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
       `);
 
-      stmt.run(id, userId, title, content, status, order, imageUrl || null);
+      await stmt.run(id, userId, title, content, status, order, imageUrl || null);
       logger.logDatabase('INSERT', 'portfolios', { id, userId, title });
 
-      return this.findById(id);
+      return await this.findById(id);
     } catch (error) {
       logger.logError(error, { model: 'Portfolio', operation: 'create' });
       throw error;
     }
   }
 
-  static findById(id) {
+  static async findById(id) {
     try {
-      const stmt = db.prepare('SELECT * FROM portfolios WHERE id = ?');
-      const portfolio = stmt.get(id);
+      const stmt = db.prepare('SELECT * FROM portfolios WHERE id = $1');
+      const portfolio = await stmt.get(id);
       return portfolio || null;
     } catch (error) {
       logger.logError(error, { model: 'Portfolio', operation: 'findById', id });
@@ -34,14 +34,14 @@ class Portfolio {
     }
   }
 
-  static findByUserId(userId) {
+  static async findByUserId(userId) {
     try {
       const stmt = db.prepare(`
         SELECT * FROM portfolios 
-        WHERE user_id = ? 
+        WHERE user_id = $1 
         ORDER BY created_at DESC
       `);
-      const portfolios = stmt.all(userId);
+      const portfolios = await stmt.all(userId);
       return portfolios;
     } catch (error) {
       logger.logError(error, { model: 'Portfolio', operation: 'findByUserId', userId });
@@ -49,14 +49,14 @@ class Portfolio {
     }
   }
 
-  static getMaxOrder(userId) {
+  static async getMaxOrder(userId) {
     try {
       const stmt = db.prepare(`
         SELECT MAX("order") as max_order 
         FROM portfolios 
-        WHERE user_id = ?
+        WHERE user_id = $1
       `);
-      const result = stmt.get(userId);
+      const result = await stmt.get(userId);
       return result?.max_order ?? -1;
     } catch (error) {
       logger.logError(error, { model: 'Portfolio', operation: 'getMaxOrder', userId });
@@ -64,10 +64,10 @@ class Portfolio {
     }
   }
 
-  static findAll() {
+  static async findAll() {
     try {
       const stmt = db.prepare('SELECT * FROM portfolios ORDER BY created_at DESC');
-      const portfolios = stmt.all();
+      const portfolios = await stmt.all();
       return portfolios;
     } catch (error) {
       logger.logError(error, { model: 'Portfolio', operation: 'findAll' });
@@ -75,60 +75,61 @@ class Portfolio {
     }
   }
 
-  static update(id, updateData) {
+  static async update(id, updateData) {
     try {
       const { title, content, status, order, imageUrl } = updateData;
       const fields = [];
       const values = [];
+      let paramIndex = 1;
 
       if (title !== undefined) {
-        fields.push('title = ?');
+        fields.push(`title = $${paramIndex++}`);
         values.push(title);
       }
       if (content !== undefined) {
-        fields.push('content = ?');
+        fields.push(`content = $${paramIndex++}`);
         values.push(content);
       }
       if (status !== undefined) {
-        fields.push('status = ?');
+        fields.push(`status = $${paramIndex++}`);
         values.push(status);
       }
       if (order !== undefined) {
-        fields.push('"order" = ?');
+        fields.push(`"order" = $${paramIndex++}`);
         values.push(order);
       }
       if (imageUrl !== undefined) {
-        fields.push('image_url = ?');
+        fields.push(`image_url = $${paramIndex++}`);
         values.push(imageUrl);
       }
 
       if (fields.length === 0) {
-        return this.findById(id);
+        return await this.findById(id);
       }
 
       fields.push('updated_at = CURRENT_TIMESTAMP');
       values.push(id);
 
-      const stmt = db.prepare(`
+      const sql = `
         UPDATE portfolios 
         SET ${fields.join(', ')}
-        WHERE id = ?
-      `);
+        WHERE id = $${paramIndex}
+      `;
 
-      stmt.run(...values);
+      await db.run(sql, values);
       logger.logDatabase('UPDATE', 'portfolios', { id });
 
-      return this.findById(id);
+      return await this.findById(id);
     } catch (error) {
       logger.logError(error, { model: 'Portfolio', operation: 'update', id });
       throw error;
     }
   }
 
-  static delete(id) {
+  static async delete(id) {
     try {
-      const stmt = db.prepare('DELETE FROM portfolios WHERE id = ?');
-      const result = stmt.run(id);
+      const stmt = db.prepare('DELETE FROM portfolios WHERE id = $1');
+      const result = await stmt.run(id);
       logger.logDatabase('DELETE', 'portfolios', { id, changes: result.changes });
       return result.changes > 0;
     } catch (error) {
@@ -139,4 +140,3 @@ class Portfolio {
 }
 
 module.exports = Portfolio;
-

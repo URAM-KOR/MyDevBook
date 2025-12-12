@@ -3,7 +3,7 @@ const logger = require('../utils/logger');
 const { v4: uuidv4 } = require('uuid');
 
 class PushSubscription {
-  static create(subscriptionData) {
+  static async create(subscriptionData) {
     try {
       const id = uuidv4();
       const { userId, endpoint, keys } = subscriptionData;
@@ -12,25 +12,27 @@ class PushSubscription {
 
       const stmt = db.prepare(`
         INSERT INTO push_subscriptions (id, user_id, endpoint, keys)
-        VALUES (?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4)
       `);
 
-      stmt.run(id, userId, endpoint, keysJson);
+      await stmt.run(id, userId, endpoint, keysJson);
       logger.logDatabase('INSERT', 'push_subscriptions', { id, userId });
 
-      return this.findById(id);
+      return await this.findById(id);
     } catch (error) {
       logger.logError(error, { model: 'PushSubscription', operation: 'create' });
       throw error;
     }
   }
 
-  static findById(id) {
+  static async findById(id) {
     try {
-      const stmt = db.prepare('SELECT * FROM push_subscriptions WHERE id = ?');
-      const subscription = stmt.get(id);
+      const stmt = db.prepare('SELECT * FROM push_subscriptions WHERE id = $1');
+      const subscription = await stmt.get(id);
       if (subscription && subscription.keys) {
-        subscription.keys = JSON.parse(subscription.keys);
+        subscription.keys = typeof subscription.keys === 'string'
+          ? JSON.parse(subscription.keys)
+          : subscription.keys;
       }
       return subscription || null;
     } catch (error) {
@@ -39,19 +41,21 @@ class PushSubscription {
     }
   }
 
-  static findByUserId(userId) {
+  static async findByUserId(userId) {
     try {
       const stmt = db.prepare(`
         SELECT * FROM push_subscriptions 
-        WHERE user_id = ? 
+        WHERE user_id = $1 
         ORDER BY created_at DESC
       `);
-      const subscriptions = stmt.all(userId);
+      const subscriptions = await stmt.all(userId);
 
       // keys JSON 파싱
       return subscriptions.map(sub => {
         if (sub.keys) {
-          sub.keys = JSON.parse(sub.keys);
+          sub.keys = typeof sub.keys === 'string'
+            ? JSON.parse(sub.keys)
+            : sub.keys;
         }
         return sub;
       });
@@ -61,15 +65,17 @@ class PushSubscription {
     }
   }
 
-  static findAll() {
+  static async findAll() {
     try {
       const stmt = db.prepare('SELECT * FROM push_subscriptions ORDER BY created_at DESC');
-      const subscriptions = stmt.all();
+      const subscriptions = await stmt.all();
 
       // keys JSON 파싱
       return subscriptions.map(sub => {
         if (sub.keys) {
-          sub.keys = JSON.parse(sub.keys);
+          sub.keys = typeof sub.keys === 'string'
+            ? JSON.parse(sub.keys)
+            : sub.keys;
         }
         return sub;
       });
@@ -79,48 +85,49 @@ class PushSubscription {
     }
   }
 
-  static update(id, updateData) {
+  static async update(id, updateData) {
     try {
       const { endpoint, keys } = updateData;
       const fields = [];
       const values = [];
+      let paramIndex = 1;
 
       if (endpoint !== undefined) {
-        fields.push('endpoint = ?');
+        fields.push(`endpoint = $${paramIndex++}`);
         values.push(endpoint);
       }
       if (keys !== undefined) {
-        fields.push('keys = ?');
+        fields.push(`keys = $${paramIndex++}`);
         values.push(JSON.stringify(keys));
       }
 
       if (fields.length === 0) {
-        return this.findById(id);
+        return await this.findById(id);
       }
 
       fields.push('updated_at = CURRENT_TIMESTAMP');
       values.push(id);
 
-      const stmt = db.prepare(`
+      const sql = `
         UPDATE push_subscriptions 
         SET ${fields.join(', ')}
-        WHERE id = ?
-      `);
+        WHERE id = $${paramIndex}
+      `;
 
-      stmt.run(...values);
+      await db.run(sql, values);
       logger.logDatabase('UPDATE', 'push_subscriptions', { id });
 
-      return this.findById(id);
+      return await this.findById(id);
     } catch (error) {
       logger.logError(error, { model: 'PushSubscription', operation: 'update', id });
       throw error;
     }
   }
 
-  static delete(id) {
+  static async delete(id) {
     try {
-      const stmt = db.prepare('DELETE FROM push_subscriptions WHERE id = ?');
-      const result = stmt.run(id);
+      const stmt = db.prepare('DELETE FROM push_subscriptions WHERE id = $1');
+      const result = await stmt.run(id);
       logger.logDatabase('DELETE', 'push_subscriptions', { id, changes: result.changes });
       return result.changes > 0;
     } catch (error) {
@@ -131,4 +138,3 @@ class PushSubscription {
 }
 
 module.exports = PushSubscription;
-
