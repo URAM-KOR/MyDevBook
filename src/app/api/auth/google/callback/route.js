@@ -40,6 +40,7 @@ export async function GET(request) {
 
     const payload = ticket.getPayload();
     const { sub: providerId, name, email, picture } = payload;
+    const fallbackName = name || (email ? email.split('@')[0] : '사용자');
 
     // 기존 사용자 확인 또는 새 사용자 생성
     let user = await User.findByProviderId(providerId);
@@ -47,7 +48,7 @@ export async function GET(request) {
     if (!user) {
       // 새 사용자 생성
       user = await User.create({
-        name,
+        name: name || fallbackName,
         email,
         providerId,
         provider: 'google',
@@ -55,8 +56,8 @@ export async function GET(request) {
       logger.info('New user created', { userId: user.id, email });
     } else {
       // 기존 사용자 정보 업데이트 (이름이 변경되었을 수 있음)
-      if (user.name !== name) {
-        user = await User.update(user.id, { name });
+      if (user.name !== (name || fallbackName)) {
+        user = await User.update(user.id, { name: name || fallbackName });
         logger.info('User updated', { userId: user.id });
       }
     }
