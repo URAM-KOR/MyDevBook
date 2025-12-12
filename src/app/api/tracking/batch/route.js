@@ -63,6 +63,13 @@ export async function GET(request) {
             .run(result.newValue, tracking.id);
         }
         
+        // weather_status 업데이트 (Portfolio 테이블)
+        if (result.weatherStatus) {
+          const db = (await import('@/utils/db.js')).default;
+          db.prepare('UPDATE portfolios SET weather_status = ? WHERE id = ?')
+            .run(result.weatherStatus, tracking.portfolio_id);
+        }
+        
       } catch (error) {
         logger.logError(error, { trackingId: tracking.id });
         results.push({ trackingId: tracking.id, error: error.message });
@@ -196,28 +203,50 @@ async function checkTracking(tracking) {
     newValue = responseText;
   }
 
-  // 3. 알림 조건 확인 (값 변경 여부와 관계없이 항상 체크)
+  // 3. 알림 조건 확인 + 상태 판단 (값 변경 여부와 관계없이 항상 체크)
   let shouldAlert = false;
+  let weatherStatus = 'healthy';
+  
   if (tracking.logic_prompt && newValue) {
-    // GPT로 알림 조건 체크
+    // GPT로 알림 조건 체크 + 상태 판단 (JSON 응답 강제)
     const alertCheck = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
-          content: `현재 값이 알림 조건을 충족하는지 확인하세요.
-조건: ${tracking.logic_prompt}
-현재 값: ${newValue}
+          content: `포트폴리오 건강 상태를 판단하세요.
 
-조건을 충족하면 "YES", 아니면 "NO"만 응답하세요.`
+추적 대상: ${targetKey}
+현재 값: ${newValue}
+알림 조건: ${tracking.logic_prompt}
+
+상태 선택:
+- healthy: 정상, 문제없음
+- alert: 알림 조건 충족됨
+- hungry: 며칠~1주일 방치
+- cobweb: 1~2주 방치
+- infested: 2주 이상 방치
+
+반드시 JSON으로 응답: {"shouldAlert": boolean, "status": "상태값"}`
         }
       ],
-      max_tokens: 10,
+      max_tokens: 50,
       temperature: 0,
+      response_format: { type: "json_object" },
     });
     
-    const alertResponse = alertCheck.choices[0]?.message?.content?.trim().toUpperCase();
-    shouldAlert = alertResponse === 'YES';
+    const alertResponse = alertCheck.choices[0]?.message?.content || '{}';
+    try {
+      const parsed = JSON.parse(alertResponse);
+      shouldAlert = parsed.shouldAlert === true;
+      // 유효한 상태값인지 검증
+      const validStatuses = ['healthy', 'alert', 'hungry', 'cobweb', 'infested'];
+      weatherStatus = validStatuses.includes(parsed.status) ? parsed.status : 'healthy';
+    } catch {
+      // JSON 파싱 실패 시 기본값 유지
+      shouldAlert = false;
+      weatherStatus = 'healthy';
+    }
   }
 
   return {
@@ -228,6 +257,7 @@ async function checkTracking(tracking) {
     oldValue: tracking.current_value,
     newValue,
     shouldAlert,
+    weatherStatus,
   };
 }
 
