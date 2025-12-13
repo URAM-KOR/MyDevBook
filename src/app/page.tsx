@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { User } from '@/types';
 
-export default function Home() {
+function HomeContent() {
   const searchParams = useSearchParams();
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -169,5 +169,27 @@ export default function Home() {
         )}
       </div>
     </main>
+  );
+}
+
+// Loading fallback for Suspense
+function HomeLoading() {
+  return (
+    <main className="min-h-screen p-8 bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold mb-4 text-gray-800">MyDevBook</h1>
+          <p className="text-xl text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<HomeLoading />}>
+      <HomeContent />
+    </Suspense>
   );
 }

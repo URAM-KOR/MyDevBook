@@ -7,7 +7,7 @@ import logger from '@/utils/logger.js';
 export async function GET(request, { params }) {
   try {
     const { id } = params;
-    const portfolio = Portfolio.findById(id);
+    const portfolio = await Portfolio.findById(id);
 
     if (!portfolio) {
       return Response.json({ error: 'Portfolio not found' }, { status: 404 });
@@ -42,7 +42,7 @@ export async function PUT(request, { params }) {
     }
 
     const { id } = params;
-    const portfolio = Portfolio.findById(id);
+    const portfolio = await Portfolio.findById(id);
 
     if (!portfolio) {
       return Response.json({ error: 'Portfolio not found' }, { status: 404 });
@@ -56,7 +56,7 @@ export async function PUT(request, { params }) {
     const body = await request.json();
     const { title, content, status, order, image_url } = body;
 
-    const updatedPortfolio = Portfolio.update(id, {
+    const updatedPortfolio = await Portfolio.update(id, {
       title,
       content,
       status,
@@ -93,7 +93,7 @@ export async function DELETE(request, { params }) {
     }
 
     const { id } = params;
-    const portfolio = Portfolio.findById(id);
+    const portfolio = await Portfolio.findById(id);
 
     if (!portfolio) {
       return Response.json({ error: 'Portfolio not found' }, { status: 404 });
@@ -106,12 +106,12 @@ export async function DELETE(request, { params }) {
 
     // 관련 트래킹 먼저 삭제 (Foreign Key 제약)
     const PortfolioTracking = (await import('@/models/PortfolioTracking.js')).default;
-    const trackings = PortfolioTracking.findByPortfolioId(id);
+    const trackings = await PortfolioTracking.findByPortfolioId(id);
     for (const tracking of trackings) {
-      PortfolioTracking.delete(tracking.id);
+      await PortfolioTracking.delete(tracking.id);
     }
 
-    const deleted = Portfolio.delete(id);
+    const deleted = await Portfolio.delete(id);
 
     if (!deleted) {
       return Response.json({ error: 'Failed to delete portfolio' }, { status: 500 });

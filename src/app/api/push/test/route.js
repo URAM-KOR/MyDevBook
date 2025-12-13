@@ -26,7 +26,7 @@ export async function POST(request) {
     );
 
     // 사용자의 구독 조회
-    const subscriptions = PushSubscription.findByUserId(payload.userId);
+    const subscriptions = await PushSubscription.findByUserId(payload.userId);
 
     if (subscriptions.length === 0) {
       return Response.json({ 
@@ -60,7 +60,7 @@ export async function POST(request) {
         
         // 만료된 구독 삭제
         if (error.statusCode === 404 || error.statusCode === 410) {
-          PushSubscription.delete(sub.id);
+          await PushSubscription.delete(sub.id);
         }
       }
     }

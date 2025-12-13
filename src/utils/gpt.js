@@ -17,14 +17,23 @@ async function analyzeStatus(url, logicPrompt) {
 
     const prompt = `${logicPrompt}\n\nURL 데이터:\n${urlData.substring(0, 2000)}`;
 
-    const completion = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+    const model = process.env.OPENAI_MODEL || 'o1-preview';
+    const completionParams = {
+      model: model,
       messages: [
         { role: 'system', content: 'You are a status analyzer. Analyze the provided data and return a status.' },
         { role: 'user', content: prompt }
       ],
-      max_tokens: 200,
-    });
+    };
+
+    // o1, gpt-5 모델은 max_completion_tokens 사용, 다른 모델은 max_tokens 사용
+    if (model.startsWith('o1') || model.startsWith('gpt-5')) {
+      completionParams.max_completion_tokens = 200;
+    } else {
+      completionParams.max_tokens = 200;
+    }
+
+    const completion = await openai.chat.completions.create(completionParams);
 
     const result = completion.choices[0]?.message?.content || 'unknown';
     logger.info('GPT analysis completed', { url, status: result.trim().toLowerCase() });

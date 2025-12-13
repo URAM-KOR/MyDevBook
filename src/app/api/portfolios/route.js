@@ -41,14 +41,14 @@ export async function GET(request) {
 
     let portfolios;
     if (userId) {
-      portfolios = Portfolio.findByUserId(userId);
+      portfolios = await Portfolio.findByUserId(userId);
     } else {
-      portfolios = Portfolio.findAll();
+      portfolios = await Portfolio.findAll();
     }
 
     // 이미지 URL 처리 + 트래킹 정보 추가
-    const portfoliosWithDetails = portfolios.map(portfolio => {
-      const trackings = PortfolioTracking.findByPortfolioId(portfolio.id);
+    const portfoliosWithDetails = await Promise.all(portfolios.map(async (portfolio) => {
+      const trackings = await PortfolioTracking.findByPortfolioId(portfolio.id);
       const tracking = trackings.length > 0 ? trackings[0] : null;
       
       return {
@@ -65,7 +65,7 @@ export async function GET(request) {
         current_value: tracking?.current_value || null,
         target_key: tracking?.target_key || null,
       };
-    });
+    }));
 
     return Response.json(portfoliosWithDetails);
   } catch (error) {
@@ -99,12 +99,12 @@ export async function POST(request) {
     // order가 없거나 0이면 자동으로 마지막 순서 + 1로 설정
     let finalOrder = order;
     if (!order || order === 0) {
-      const maxOrder = Portfolio.getMaxOrder(payload.userId);
+      const maxOrder = await Portfolio.getMaxOrder(payload.userId);
       finalOrder = maxOrder + 1;
     }
 
     // 포트폴리오 생성
-    const portfolio = Portfolio.create({
+    const portfolio = await Portfolio.create({
       userId: payload.userId,
       title,
       content: content || null,
@@ -116,7 +116,7 @@ export async function POST(request) {
     // 트래킹 정보가 있으면 함께 생성
     let tracking = null;
     if (tracking_url) {
-      tracking = PortfolioTracking.create({
+      tracking = await PortfolioTracking.create({
         portfolioId: portfolio.id,
         url: tracking_url,
         logicPrompt: tracking_prompt || null,

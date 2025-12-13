@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { usePortfolios } from '@/hooks/usePortfolios';
 import PageLayout from '@/components/PageLayout';
 import PortfolioGrid from '@/components/PortfolioGrid';
@@ -8,7 +9,8 @@ import Modal from '@/components/Modal';
 import PortfolioWizard from '@/components/PortfolioWizard';
 import PushNotification from '@/components/PushNotification';
 
-export default function PortfoliosPage() {
+// 클라이언트 전용 컴포넌트 (Hydration 에러 방지)
+function PortfoliosContent() {
   const {
     portfolios,
     loading,
@@ -22,10 +24,6 @@ export default function PortfoliosPage() {
     closeModal,
   } = usePortfolios();
 
-  if (loading) {
-    return <Loading />;
-  }
-
   // 수정 모드일 때 초기 데이터 준비
   const initialData = editingPortfolio ? {
     title: editingPortfolio.title,
@@ -36,13 +34,19 @@ export default function PortfoliosPage() {
 
   return (
     <PageLayout title="My Dev Books">
-      <PushNotification />
-      <PortfolioGrid
-        portfolios={portfolios}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onAdd={openModal}
-      />
+      {loading ? (
+        <Loading />
+      ) : (
+        <>
+          <PushNotification />
+          <PortfolioGrid
+            portfolios={portfolios}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onAdd={openModal}
+          />
+        </>
+      )}
 
       <Modal 
         isOpen={showModal} 
@@ -57,5 +61,17 @@ export default function PortfoliosPage() {
         />
       </Modal>
     </PageLayout>
+  );
+}
+
+export default function PortfoliosPage() {
+  return (
+    <Suspense fallback={
+      <PageLayout title="My Dev Books">
+        <Loading />
+      </PageLayout>
+    }>
+      <PortfoliosContent />
+    </Suspense>
   );
 }

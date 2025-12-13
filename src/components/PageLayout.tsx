@@ -1,3 +1,5 @@
+'use client';
+
 import { container, spacing, colors } from '@/styles/design-tokens';
 
 interface PageLayoutProps {

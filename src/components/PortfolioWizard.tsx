@@ -64,12 +64,17 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
   // GPT 분석 상태
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  
+  // 제출 중 상태 (중복 제출 방지)
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isLastStep = currentStep === (formData.tracking_url ? STEPS.ALERT_CONDITION : STEPS.URL);
   const isFirstStep = currentStep === STEPS.TITLE;
 
-  // URL 접근 확인
+  // URL 접근 확인 (데이터 반환)
   const checkUrl = async () => {
+    if (!formData.tracking_url) return null;
+
     setCheckingUrl(true);
     setUrlCheckResult(null);
 
@@ -86,8 +91,11 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
 
       const data = await response.json();
       setUrlCheckResult(data);
+      return data;
     } catch (error) {
-      setUrlCheckResult({ success: false, error: '접근 확인 중 오류가 발생했습니다.' });
+      const fail = { success: false, error: '접근 확인 중 오류가 발생했습니다.' };
+      setUrlCheckResult(fail);
+      return fail;
     } finally {
       setCheckingUrl(false);
     }
@@ -95,12 +103,17 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
 
   // GPT로 목표값 분석
   const analyzeTargetValue = async () => {
-    if (!urlCheckResult?.data) return;
-    
     setAnalyzing(true);
     setAnalysisResult(null);
 
     try {
+      // 항상 최신 데이터를 확보하기 위해 URL 확인부터 다시 실행
+      const fresh = await checkUrl();
+      if (!fresh?.success || !fresh.data) {
+        setAnalysisResult({ success: false, error: fresh?.error || 'URL 데이터를 가져오지 못했습니다.' });
+        return;
+      }
+
       const token = localStorage.getItem('token');
       const response = await fetch('/api/tracking/analyze', {
         method: 'POST',
@@ -110,8 +123,8 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
         },
         body: JSON.stringify({ 
           url: formData.tracking_url,
-          data: urlCheckResult.data,
-          targetKey: formData.content,  // 목표 키
+          data: fresh.data,
+          targetKey: formData.content,  // 추적 목표와 동일하게 사용
         }),
       });
 
@@ -129,7 +142,13 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
   };
 
   const handleNext = () => {
+    // 중복 제출 방지
+    if (isSubmitting) {
+      return;
+    }
+    
     if (isLastStep) {
+      setIsSubmitting(true);
       onSubmit(formData);
       return;
     }
@@ -142,6 +161,7 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
       setCurrentStep(STEPS.URL_CHECK);
       setTimeout(checkUrl, 300);
     } else if (currentStep === STEPS.URL && !formData.tracking_url) {
+      setIsSubmitting(true);
       onSubmit(formData);
     } else if (currentStep === STEPS.URL_CHECK) {
       setCurrentStep(STEPS.TARGET_KEY);
@@ -330,11 +350,6 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
                   <p style={{ margin: '8px 0 0', fontSize: '20px', fontWeight: 600, color: colors.blue[600] }}>
                     {analysisResult.currentValue}
                   </p>
-                  {analysisResult.analysis && (
-                    <p style={{ margin: '8px 0 0', fontSize: '13px', color: colors.gray[500] }}>
-                      {analysisResult.analysis}
-                    </p>
-                  )}
                 </div>
               ) : (
                 <p style={{ ...styles.checkStatus, color: '#dc2626' }}>
@@ -344,7 +359,13 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
             </div>
 
             {!analyzing && (
-              <button onClick={analyzeTargetValue} style={styles.retryButton}>
+              <button 
+                onClick={() => {
+                  setAnalysisResult(null);
+                  setCurrentStep(STEPS.TARGET_KEY);
+                }} 
+                style={styles.retryButton}
+              >
                 🔄 다시 분석
               </button>
             )}
@@ -437,7 +458,7 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
         </button>
         <button
           onClick={handleNext}
-          disabled={!canProceed() || checkingUrl || analyzing}
+          disabled={!canProceed() || checkingUrl || analyzing || isSubmitting}
           style={{
             ...styles.primaryButton,
             backgroundColor: canProceed() && !checkingUrl && !analyzing ? colors.blue[500] : colors.gray[300],

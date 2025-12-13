@@ -23,7 +23,8 @@ export async function POST(request) {
       return Response.json({ error: 'URL and data are required' }, { status: 400 });
     }
 
-    logger.info('GPT analysis started', { url, dataLength: data.length, targetKey });
+    const model = process.env.OPENAI_MODEL || 'o1-preview';
+    logger.info('GPT analysis started', { url, dataLength: data.length, targetKey, model });
 
     try {
       const OpenAI = (await import('openai')).default;
@@ -34,47 +35,78 @@ export async function POST(request) {
       // 데이터 요약 (Puppeteer가 이미 텍스트만 추출함)
       const truncatedData = data.substring(0, 30000);
 
-      const systemPrompt = targetKey 
-        ? `당신은 텍스트에서 특정 값을 정확하게 추출하는 전문가입니다.
+      // 현재 UTC 시간 가져오기
+      const now = new Date();
+      const currentTime = now.toISOString(); // ISO 8601 형식 (UTC)
+      
+      // UTC 날짜 문자열 생성 (예: "Dec 13, 2025")
+      const utcYear = now.getUTCFullYear();
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const utcMonth = monthNames[now.getUTCMonth()];
+      const utcDay = now.getUTCDate();
+      const currentDateStr = `${utcMonth} ${utcDay}, ${utcYear}`;
 
-**중요: 데이터에 있는 값을 그대로 복사해서 반환하세요. 절대 추측하거나 변환하지 마세요.**
+      const systemPrompt = `당신은 웹 페이지에서 특정 정보를 찾는 전문가입니다.
 
-사용자가 찾는 값: "${targetKey}"
+**응답 형식 (반드시 JSON만):**
+{"currentValue": "찾은 값 또는 '값 없음'"}
+`;
 
-규칙:
-1. 데이터에서 "${targetKey}"와 관련된 부분을 찾으세요
-2. 찾은 값을 **있는 그대로** 복사하세요 (예: "4 days ago"면 "4 days ago"로)
-3. 번역하거나 변환하지 마세요
-4. 가장 최신/대표적인 값을 선택하세요
-
-응답 형식 (JSON만, 다른 텍스트 없이):
-{"currentValue": "데이터에서 찾은 원본 값", "analysis": "어디서 찾았는지"}`
-        : `당신은 텍스트에서 핵심 정보를 정확하게 추출하는 전문가입니다.
-
-**중요: 데이터에 있는 값을 그대로 복사해서 반환하세요.**
-
-응답 형식 (JSON만):
-{"currentValue": "핵심 값", "analysis": "한 줄 설명"}`;
-
-      const completion = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      // 각 요청은 독립적으로 처리됩니다 (이전 대화 히스토리 없음)
+      const completionParams = {
+        model: model,  // 추론형 모델 사용
         messages: [
+          // 시스템 프롬프트 (각 요청마다 새로 생성)
           {
             role: 'system',
             content: systemPrompt
           },
+          // 사용자 요청 (각 요청마다 새로 생성, 이전 대화 없음)
           {
             role: 'user',
             content: targetKey 
-              ? `"${targetKey}"을 찾아서 데이터에 있는 그대로 반환하세요.\n\n데이터:\n${truncatedData}`
-              : `데이터:\n${truncatedData}`
+              ? `다음은 웹 페이지에서 Ctrl+A로 복사한 텍스트입니다. "${targetKey}"와 관련된 값을 찾아주세요.
+
+현재 시간: ${currentDateStr}
+
+페이지 텍스트:
+${truncatedData}`
+              : `다음은 웹 페이지에서 Ctrl+A로 복사한 텍스트입니다. 핵심 정보를 추출하세요.
+
+현재 시간: ${currentDateStr}
+
+페이지 텍스트:
+${truncatedData}`
           }
         ],
-        max_tokens: 200,
-        temperature: 0,  // 정확한 추출을 위해 0
-      });
+      };
+
+      // o1, gpt-5 모델은 max_completion_tokens 사용, 다른 모델은 max_tokens 사용
+      if (model.startsWith('o1') || model.startsWith('gpt-5')) {
+        completionParams.max_completion_tokens = 200;
+      } else {
+        completionParams.max_tokens = 200;
+        completionParams.temperature = 0;  // 정확한 추출을 위해 0
+      }
+
+      const completion = await openai.chat.completions.create(completionParams);
 
       const responseText = completion.choices[0]?.message?.content || '';
+      
+      // 응답이 비어있는 경우 에러 처리
+      if (!responseText || responseText.trim() === '') {
+        logger.error('GPT API returned empty response', { 
+          url, 
+          targetKey,
+          model,
+          completion: JSON.stringify(completion),
+        });
+        
+        return Response.json({
+          success: false,
+          error: 'GPT API가 응답을 반환하지 않았습니다. 모델을 확인해주세요.',
+        });
+      }
       
       // JSON 파싱 시도
       let result;
@@ -84,18 +116,33 @@ export async function POST(request) {
         if (jsonMatch) {
           result = JSON.parse(jsonMatch[0]);
         } else {
-          result = { currentValue: responseText, analysis: '' };
+          result = { currentValue: responseText };
         }
-      } catch {
-        result = { currentValue: responseText, analysis: '' };
+      } catch (parseError) {
+        logger.error('Failed to parse GPT response', { 
+          url, 
+          targetKey,
+          model,
+          rawResponse: responseText.substring(0, 500),
+          error: parseError.message,
+        });
+        result = { currentValue: responseText };
       }
 
-      logger.info('GPT analysis completed', { url, currentValue: result.currentValue });
+      logger.info('GPT analysis completed', { 
+        url, 
+        targetKey,
+        model,
+        currentValue: result.currentValue,
+        rawResponse: responseText.substring(0, 200), // 디버깅용
+        dataPreview: truncatedData.substring(0, 500), // 디버깅용
+      });
 
+      // "값 없음"이면 에러로 처리하지 않고 성공으로 반환 (사용자가 확인할 수 있도록)
       return Response.json({
         success: true,
         currentValue: result.currentValue || '분석 결과를 확인할 수 없습니다',
-        analysis: result.analysis || '',
+        isNotFound: result.currentValue === '값 없음' || result.currentValue?.toLowerCase().includes('없'),
       });
 
     } catch (gptError) {

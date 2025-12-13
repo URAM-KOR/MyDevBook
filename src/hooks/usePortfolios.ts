@@ -6,11 +6,15 @@ import { PortfolioFormData as WizardFormData } from '@/components/PortfolioWizar
 export function usePortfolios() {
   const router = useRouter();
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // 초기값을 false로 변경 (서버/클라이언트 일치)
   const [showModal, setShowModal] = useState(false);
   const [editingPortfolio, setEditingPortfolio] = useState<Portfolio | null>(null);
+  const [mounted, setMounted] = useState(false);
 
+  // 클라이언트에서만 마운트 확인
   useEffect(() => {
+    setMounted(true);
+    setLoading(true); // 마운트 후에만 로딩 시작
     fetchPortfolios();
   }, []);
 
@@ -25,17 +29,38 @@ export function usePortfolios() {
       const payload = JSON.parse(atob(token.split('.')[1]));
       const userId = payload.userId;
 
-      const response = await fetch(`/api/portfolios?user_id=${userId}`, {
+      const apiUrl = `/api/portfolios?user_id=${userId}`;
+      console.log('[Portfolios] Fetching:', { userId, apiUrl });
+      
+      const response = await fetch(apiUrl, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
+      console.log('[Portfolios] Response:', { 
+        status: response.status, 
+        ok: response.ok,
+        statusText: response.statusText 
+      });
+
       if (response.ok) {
         const data = await response.json();
-        setPortfolios(data);
+        console.log('[Portfolios] Data received:', { 
+          count: data?.length || 0,
+          userId,
+          portfolios: data 
+        });
+        setPortfolios(data || []);
       } else if (response.status === 401) {
+        console.warn('[Portfolios] Unauthorized, redirecting');
+        localStorage.removeItem('token');
         router.push('/');
+      } else {
+        console.error('[Portfolios] Error:', response.status, response.statusText);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[Portfolios] Error details:', errorData);
+        setPortfolios([]);
       }
     } catch (error) {
       console.error('Failed to fetch portfolios:', error);
@@ -142,7 +167,7 @@ export function usePortfolios() {
 
   return {
     portfolios,
-    loading,
+    loading: loading, // 마운트 전에는 false (서버와 동일)
     showModal,
     editingPortfolio,
     handleCreate,

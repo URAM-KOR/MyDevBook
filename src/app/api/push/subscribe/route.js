@@ -25,12 +25,12 @@ export async function POST(request) {
     const PushSubscription = (await import('@/models/PushSubscription.js')).default;
     
     // 기존 구독 삭제 후 새로 등록
-    const existing = PushSubscription.findByUserId(payload.userId);
+    const existing = await PushSubscription.findByUserId(payload.userId);
     for (const sub of existing) {
-      PushSubscription.delete(sub.id);
+      await PushSubscription.delete(sub.id);
     }
 
-    const saved = PushSubscription.create({
+    const saved = await PushSubscription.create({
       userId: payload.userId,
       endpoint: subscription.endpoint,
       keys: subscription.keys,
