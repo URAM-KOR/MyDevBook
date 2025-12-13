@@ -68,8 +68,10 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
   const isLastStep = currentStep === (formData.tracking_url ? STEPS.ALERT_CONDITION : STEPS.URL);
   const isFirstStep = currentStep === STEPS.TITLE;
 
-  // URL 접근 확인
+  // URL 접근 확인 (데이터 반환)
   const checkUrl = async () => {
+    if (!formData.tracking_url) return null;
+
     setCheckingUrl(true);
     setUrlCheckResult(null);
 
@@ -86,8 +88,11 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
 
       const data = await response.json();
       setUrlCheckResult(data);
+      return data;
     } catch (error) {
-      setUrlCheckResult({ success: false, error: '접근 확인 중 오류가 발생했습니다.' });
+      const fail = { success: false, error: '접근 확인 중 오류가 발생했습니다.' };
+      setUrlCheckResult(fail);
+      return fail;
     } finally {
       setCheckingUrl(false);
     }
@@ -95,12 +100,17 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
 
   // GPT로 목표값 분석
   const analyzeTargetValue = async () => {
-    if (!urlCheckResult?.data) return;
-    
     setAnalyzing(true);
     setAnalysisResult(null);
 
     try {
+      // 항상 최신 데이터를 확보하기 위해 URL 확인부터 다시 실행
+      const fresh = await checkUrl();
+      if (!fresh?.success || !fresh.data) {
+        setAnalysisResult({ success: false, error: fresh?.error || 'URL 데이터를 가져오지 못했습니다.' });
+        return;
+      }
+
       const token = localStorage.getItem('token');
       const response = await fetch('/api/tracking/analyze', {
         method: 'POST',
@@ -110,8 +120,8 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
         },
         body: JSON.stringify({ 
           url: formData.tracking_url,
-          data: urlCheckResult.data,
-          targetKey: formData.content,  // 목표 키
+          data: fresh.data,
+          targetKey: formData.content || '핵심 값',  // 목표 키 (미입력 시 기본값)
         }),
       });
 
