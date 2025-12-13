@@ -77,6 +77,11 @@ export default function PortfolioCard({ portfolio, onEdit, onDelete }: Portfolio
                   {portfolio.current_value}
                 </p>
               )}
+              {portfolio.tracking_prompt && (
+                <p style={{ fontSize: '11px', color: colors.gray[400], margin: '8px 0 0', fontStyle: 'italic' }}>
+                  🔔 알림: {portfolio.tracking_prompt}
+                </p>
+              )}
             </div>
           )}
           
