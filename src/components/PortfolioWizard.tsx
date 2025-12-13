@@ -64,6 +64,9 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
   // GPT 분석 상태
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  
+  // 제출 중 상태 (중복 제출 방지)
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isLastStep = currentStep === (formData.tracking_url ? STEPS.ALERT_CONDITION : STEPS.URL);
   const isFirstStep = currentStep === STEPS.TITLE;
@@ -121,7 +124,7 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
         body: JSON.stringify({ 
           url: formData.tracking_url,
           data: fresh.data,
-          targetKey: formData.content || '핵심 값',  // 목표 키 (미입력 시 기본값)
+          targetKey: formData.content,  // 추적 목표와 동일하게 사용
         }),
       });
 
@@ -139,7 +142,13 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
   };
 
   const handleNext = () => {
+    // 중복 제출 방지
+    if (isSubmitting) {
+      return;
+    }
+    
     if (isLastStep) {
+      setIsSubmitting(true);
       onSubmit(formData);
       return;
     }
@@ -152,6 +161,7 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
       setCurrentStep(STEPS.URL_CHECK);
       setTimeout(checkUrl, 300);
     } else if (currentStep === STEPS.URL && !formData.tracking_url) {
+      setIsSubmitting(true);
       onSubmit(formData);
     } else if (currentStep === STEPS.URL_CHECK) {
       setCurrentStep(STEPS.TARGET_KEY);
@@ -340,11 +350,6 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
                   <p style={{ margin: '8px 0 0', fontSize: '20px', fontWeight: 600, color: colors.blue[600] }}>
                     {analysisResult.currentValue}
                   </p>
-                  {analysisResult.analysis && (
-                    <p style={{ margin: '8px 0 0', fontSize: '13px', color: colors.gray[500] }}>
-                      {analysisResult.analysis}
-                    </p>
-                  )}
                 </div>
               ) : (
                 <p style={{ ...styles.checkStatus, color: '#dc2626' }}>
@@ -354,7 +359,13 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
             </div>
 
             {!analyzing && (
-              <button onClick={analyzeTargetValue} style={styles.retryButton}>
+              <button 
+                onClick={() => {
+                  setAnalysisResult(null);
+                  setCurrentStep(STEPS.TARGET_KEY);
+                }} 
+                style={styles.retryButton}
+              >
                 🔄 다시 분석
               </button>
             )}
@@ -447,7 +458,7 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
         </button>
         <button
           onClick={handleNext}
-          disabled={!canProceed() || checkingUrl || analyzing}
+          disabled={!canProceed() || checkingUrl || analyzing || isSubmitting}
           style={{
             ...styles.primaryButton,
             backgroundColor: canProceed() && !checkingUrl && !analyzing ? colors.blue[500] : colors.gray[300],
