@@ -275,6 +275,7 @@ async function sendPushNotification(userId, payload) {
   }
 }
 
+<<<<<<< HEAD
 // 권한 체크 함수
 function checkPermissions() {
   // 실행 사용자 확인
