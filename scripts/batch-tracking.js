@@ -135,8 +135,9 @@ async function checkTracking(tracking) {
 응답 형식 (JSON만, 다른 텍스트 없이):
 {"currentValue": "데이터에서 찾은 원본 값"}`;
 
-  const completion = await openai.chat.completions.create({
-    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+  const model = process.env.OPENAI_MODEL || 'o1-preview';
+  const completionParams = {
+    model: model,  // 추론형 모델 사용
     messages: [
       {
         role: 'system',
@@ -147,9 +148,17 @@ async function checkTracking(tracking) {
         content: `"${targetKey}"을 찾아서 데이터에 있는 그대로 반환하세요.\n\n데이터:\n${truncatedData}`
       }
     ],
-    max_tokens: 200,
-    temperature: 0,
-  });
+  };
+
+  // o1, gpt-5 모델은 max_completion_tokens 사용, 다른 모델은 max_tokens 사용
+  if (model.startsWith('o1') || model.startsWith('gpt-5')) {
+    completionParams.max_completion_tokens = 200;
+  } else {
+    completionParams.max_tokens = 200;
+    completionParams.temperature = 0;
+  }
+
+  const completion = await openai.chat.completions.create(completionParams);
 
   const responseText = completion.choices[0]?.message?.content || '';
   let newValue;
@@ -169,8 +178,9 @@ async function checkTracking(tracking) {
   
   if (tracking.logic_prompt && newValue) {
     // GPT로 알림 조건 체크 + 상태 판단 (JSON 응답 강제)
-    const alertCheck = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    const alertModel = process.env.OPENAI_MODEL || 'o1-preview';
+    const alertParams = {
+      model: alertModel,
       messages: [
         {
           role: 'system',
@@ -190,10 +200,18 @@ async function checkTracking(tracking) {
 반드시 JSON으로 응답: {"shouldAlert": boolean, "status": "상태값"}`
         }
       ],
-      max_tokens: 50,
-      temperature: 0,
       response_format: { type: "json_object" },
-    });
+    };
+
+    // o1, gpt-5 모델은 max_completion_tokens 사용, 다른 모델은 max_tokens 사용
+    if (alertModel.startsWith('o1') || alertModel.startsWith('gpt-5')) {
+      alertParams.max_completion_tokens = 50;
+    } else {
+      alertParams.max_tokens = 50;
+      alertParams.temperature = 0;
+    }
+
+    const alertCheck = await openai.chat.completions.create(alertParams);
     
     const alertResponse = alertCheck.choices[0]?.message?.content || '{}';
     try {
@@ -257,9 +275,49 @@ async function sendPushNotification(userId, payload) {
   }
 }
 
+// 권한 체크 함수
+function checkPermissions() {
+  // 실행 사용자 확인
+  if (process.platform !== 'win32') {
+    const { execSync } = require('child_process');
+    try {
+      const currentUser = execSync('whoami', { encoding: 'utf-8' }).trim();
+      const currentUid = process.getuid ? process.getuid() : null;
+      
+      logger.info('Batch script executed by', { user: currentUser, uid: currentUid });
+      
+      // root 사용자로 실행되는 것 방지 (선택적)
+      if (currentUid === 0) {
+        logger.warn('Root 사용자로 실행 중입니다. 보안상 권장되지 않습니다.');
+      }
+    } catch (error) {
+      logger.warn('사용자 정보를 가져올 수 없습니다', { error: error.message });
+    }
+  }
+  
+  // 필수 환경 변수 확인
+  const requiredEnvVars = ['OPENAI_API_KEY', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'];
+  const missingVars = requiredEnvVars.filter(key => !process.env[key]);
+  
+  if (missingVars.length > 0) {
+    throw new Error(`필수 환경 변수가 설정되지 않았습니다: ${missingVars.join(', ')}`);
+  }
+  
+  // BATCH_SECRET 확인 (선택적, 설정되어 있으면 검증)
+  const batchSecret = process.env.BATCH_SECRET;
+  if (batchSecret && batchSecret === 'your-batch-secret-key') {
+    logger.warn('BATCH_SECRET이 기본값입니다. 보안을 위해 변경해주세요.');
+  }
+  
+  return true;
+}
+
 // 메인 실행 함수
 async function main() {
   try {
+    // 권한 체크
+    checkPermissions();
+    
     logger.info('Batch tracking check started');
 
     // 체크가 필요한 트래킹 목록 조회
