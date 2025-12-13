@@ -133,24 +133,122 @@ async function fetchWithPuppeteer(url) {
       timeout: 30000,
     });
 
-    // 추가 대기 (동적 콘텐츠 로드)
+    // 추가 대기 (동적 콘텐츠 로드 - JavaScript 실행 완료 대기)
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
+    // 페이지가 완전히 렌더링될 때까지 대기 (모든 JavaScript 실행 완료)
+    await page.evaluate(() => {
+      return new Promise((resolve) => {
+        // DOM이 안정화될 때까지 대기
+        if (document.readyState === 'complete') {
+          // 추가로 requestAnimationFrame을 여러 번 실행하여 모든 렌더링 완료 보장
+          // relative-time 같은 Web Component가 업데이트될 시간 확보
+          let frames = 0;
+          const checkComplete = () => {
+            frames++;
+            if (frames >= 10) { // 3 → 10으로 증가
+              resolve();
+            } else {
+              requestAnimationFrame(checkComplete);
+            }
+          };
+          requestAnimationFrame(checkComplete);
+        } else {
+          window.addEventListener('load', () => {
+            let frames = 0;
+            const checkComplete = () => {
+              frames++;
+              if (frames >= 10) { // 3 → 10으로 증가
+                resolve();
+              } else {
+                requestAnimationFrame(checkComplete);
+              }
+            };
+            requestAnimationFrame(checkComplete);
+          });
+        }
+      });
+    });
+    
+    // 추가 대기 (Web Component 렌더링 완료)
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // 페이지 텍스트 추출 (Ctrl+A 복사한 것처럼)
+    // 페이지 텍스트 추출 (개발자 도구 콘솔 방식 - Shadow DOM 포함)
     const textContent = await page.evaluate(() => {
-      // body 내의 모든 텍스트 추출
-      return document.body.innerText;
+      // Shadow DOM을 포함한 모든 텍스트를 재귀적으로 추출하는 함수
+      const getAllText = (node) => {
+        let text = '';
+        
+        // 텍스트 노드인 경우
+        if (node.nodeType === Node.TEXT_NODE) {
+          const trimmed = node.textContent.trim();
+          if (trimmed) {
+            text += trimmed + ' ';
+          }
+        }
+        // 요소 노드인 경우
+        else if (node.nodeType === Node.ELEMENT_NODE) {
+          // Shadow DOM이 있는 경우 (Web Component)
+          if (node.shadowRoot) {
+            // Shadow DOM 내부의 텍스트도 추출
+            const shadowText = getAllText(node.shadowRoot);
+            if (shadowText) {
+              text += shadowText + ' ';
+            }
+          }
+          
+          // display: none이나 visibility: hidden인 요소는 제외
+          const style = window.getComputedStyle(node);
+          if (style.display !== 'none' && style.visibility !== 'hidden') {
+            // 자식 노드들을 재귀적으로 처리
+            for (const child of node.childNodes) {
+              const childText = getAllText(child);
+              if (childText) {
+                text += childText + ' ';
+              }
+            }
+          }
+        }
+        // DocumentFragment인 경우 (Shadow DOM의 루트)
+        else if (node.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+          for (const child of node.childNodes) {
+            const childText = getAllText(child);
+            if (childText) {
+              text += childText + ' ';
+            }
+          }
+        }
+        
+        return text.trim();
+      };
+      
+      // body의 모든 텍스트 추출 (Shadow DOM 포함)
+      return getAllText(document.body) || document.body.innerText || '';
     });
 
     await browser.close();
     browser = null;
 
-    logger.info('Puppeteer extraction successful', { url, dataLength: textContent.length });
+    // 추출된 텍스트 전체를 로그에 출력 (디버깅용)
+    logger.info('Puppeteer extraction successful', { 
+      url, 
+      dataLength: textContent.length,
+      dataPreview: textContent.substring(0, 500), // 처음 500자 미리보기
+    });
+    
+    // 전체 텍스트를 로그에 출력 (개발 환경에서만)
+    if (process.env.NODE_ENV === 'development') {
+      logger.info('Extracted text (full)', { 
+        url,
+        fullText: textContent 
+      });
+    }
 
     return Response.json({
       success: true,
       data: textContent,
       dataLength: textContent.length,
+      dataPreview: textContent.substring(0, 1000), // 응답에 처음 1000자 포함
       method: 'puppeteer',
     });
 
