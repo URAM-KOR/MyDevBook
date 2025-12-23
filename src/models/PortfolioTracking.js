@@ -82,12 +82,10 @@ class PortfolioTracking {
 
   static async findPendingChecks() {
     try {
-      // 마지막 확인이 없거나 1분 이상 지난 항목들 (테스트용, 프로덕션에서는 1시간으로 변경)
+      // 모든 트래킹을 체크 (GPT 응답 필드만 관리하므로 메타데이터 필드 제거)
       const stmt = db.prepare(`
         SELECT * FROM portfolio_trackings 
-        WHERE last_checked_at IS NULL 
-           OR last_checked_at < NOW() - INTERVAL '1 minute'
-        ORDER BY last_checked_at ASC NULLS FIRST
+        ORDER BY updated_at ASC
       `);
       const trackings = await stmt.all();
       
@@ -104,15 +102,15 @@ class PortfolioTracking {
 
   static async updateStatus(id, status) {
     try {
+      // 메타데이터 필드 제거로 인해 이 메서드는 더 이상 필요하지 않음
+      // GPT 응답 필드는 batch-tracking.mjs에서 직접 업데이트
       const stmt = db.prepare(`
         UPDATE portfolio_trackings 
-        SET last_status = $1, 
-            last_checked_at = CURRENT_TIMESTAMP,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
+        SET updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
       `);
 
-      await stmt.run(status, id);
+      await stmt.run(id);
       logger.logDatabase('UPDATE', 'portfolio_trackings', { id, status });
 
       return await this.findById(id);

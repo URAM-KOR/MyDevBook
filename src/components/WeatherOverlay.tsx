@@ -6,7 +6,7 @@ interface WeatherOverlayProps {
   status: WeatherStatus;
 }
 
-const weatherConfig = {
+export const weatherConfig = {
   healthy: {
     emoji: '💪',
     label: '✨ 완벽해요!',
@@ -73,7 +73,7 @@ export default function WeatherOverlay({ status }: WeatherOverlayProps) {
           zIndex: 5,
         }}
       />
-      
+
       {/* 상태 아이콘 - 더 크고 격하게! */}
       <div
         style={{
@@ -82,8 +82,8 @@ export default function WeatherOverlay({ status }: WeatherOverlayProps) {
           right: '8px',
           fontSize: '42px',
           zIndex: 10,
-          filter: config.glow 
-            ? `drop-shadow(${config.glow})` 
+          filter: config.glow
+            ? `drop-shadow(${config.glow})`
             : 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))',
         }}
         className={`weather-icon weather-${config.animate}`}
@@ -93,16 +93,13 @@ export default function WeatherOverlay({ status }: WeatherOverlayProps) {
 
       {/* 상태 라벨 - 더 눈에 띄게! */}
       <div
+        className="label-blink"
         style={{
           position: 'absolute',
           bottom: '8px',
           left: '8px',
           right: '8px',
           padding: '6px 12px',
-          backgroundColor: status === 'alert' ? 'rgba(239, 68, 68, 0.9)' 
-            : status === 'infested' ? 'rgba(55, 65, 81, 0.9)'
-            : 'rgba(0,0,0,0.75)',
-          color: 'white',
           borderRadius: '8px',
           fontSize: '12px',
           fontWeight: 700,
@@ -110,8 +107,9 @@ export default function WeatherOverlay({ status }: WeatherOverlayProps) {
           textAlign: 'center',
           letterSpacing: '0.5px',
           textTransform: 'uppercase',
+          color: 'white',
         }}
-        className={status === 'alert' ? 'label-pulse' : ''}
+        data-status={status}
       >
         {config.label}
       </div>
@@ -122,17 +120,17 @@ export default function WeatherOverlay({ status }: WeatherOverlayProps) {
           {/* 왼쪽 위 거미줄 */}
           <div className="cobweb cobweb-tl">
             <svg viewBox="0 0 80 80" fill="none">
-              <path d="M0 0 L80 80 M0 15 L65 80 M15 0 L80 65 M0 30 L50 80 M30 0 L80 50 M0 50 L30 80 M50 0 L80 30" 
-                stroke="rgba(255,255,255,0.4)" strokeWidth="1"/>
-              <path d="M0 0 C40 20 20 40 0 80 M0 0 C20 40 40 20 80 0" 
-                stroke="rgba(255,255,255,0.3)" strokeWidth="0.5"/>
+              <path d="M0 0 L80 80 M0 15 L65 80 M15 0 L80 65 M0 30 L50 80 M30 0 L80 50 M0 50 L30 80 M50 0 L80 30"
+                stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
+              <path d="M0 0 C40 20 20 40 0 80 M0 0 C20 40 40 20 80 0"
+                stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
             </svg>
           </div>
           {/* 오른쪽 위 거미줄 */}
           <div className="cobweb cobweb-tr">
             <svg viewBox="0 0 80 80" fill="none">
-              <path d="M80 0 L0 80 M80 15 L15 80 M65 0 L0 65" 
-                stroke="rgba(255,255,255,0.3)" strokeWidth="1"/>
+              <path d="M80 0 L0 80 M80 15 L15 80 M65 0 L0 65"
+                stroke="rgba(255,255,255,0.3)" strokeWidth="1" />
             </svg>
           </div>
           {/* 먼지 파티클 */}
@@ -256,6 +254,51 @@ export default function WeatherOverlay({ status }: WeatherOverlayProps) {
         @keyframes labelPulse {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.02); box-shadow: 0 0 20px rgba(239, 68, 68, 0.8); }
+        }
+        
+        @keyframes labelBlinkAlert {
+          0%, 100% { 
+            opacity: 0;
+            background-color: rgba(239, 68, 68, 0);
+          }
+          50% { 
+            opacity: 1;
+            background-color: rgba(239, 68, 68, 0.9);
+          }
+        }
+        
+        @keyframes labelBlinkInfested {
+          0%, 100% { 
+            opacity: 0;
+            background-color: rgba(55, 65, 81, 0);
+          }
+          50% { 
+            opacity: 1;
+            background-color: rgba(55, 65, 81, 0.9);
+          }
+        }
+        
+        @keyframes labelBlinkDefault {
+          0%, 100% { 
+            opacity: 0;
+            background-color: rgba(0, 0, 0, 0);
+          }
+          50% { 
+            opacity: 1;
+            background-color: rgba(0, 0, 0, 0.75);
+          }
+        }
+        
+        .label-blink[data-status="alert"] {
+          animation: labelBlinkAlert 2s ease-in-out infinite;
+        }
+        .label-blink[data-status="infested"] {
+          animation: labelBlinkInfested 2s ease-in-out infinite;
+        }
+        .label-blink[data-status="hungry"],
+        .label-blink[data-status="cobweb"],
+        .label-blink[data-status="healthy"] {
+          animation: labelBlinkDefault 2s ease-in-out infinite;
         }
         
         @keyframes sparkleAnim {

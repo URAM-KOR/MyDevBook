@@ -75,7 +75,7 @@ const db = {
       for (const query of queries) {
         if (query.trim()) {
           await client.query(query);
-        }
+}
       }
       await client.query('COMMIT');
     } catch (error) {

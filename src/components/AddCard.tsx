@@ -1,4 +1,6 @@
-import { card, cardStyles, colors, spacing } from '@/styles/design-tokens';
+'use client';
+
+import { motion } from 'framer-motion';
 
 interface AddCardProps {
   onClick: () => void;
@@ -6,41 +8,52 @@ interface AddCardProps {
 
 export default function AddCard({ onClick }: AddCardProps) {
   return (
-    <button
+    <motion.button
       onClick={onClick}
+      whileHover={{ scale: 1.1, zIndex: 10 }}
+      transition={{ duration: 0.3 }}
       style={{
-        minWidth: card.minWidth,
-        minHeight: card.minHeight,
-        borderRadius: card.borderRadius,
-        boxShadow: cardStyles.base.boxShadow,
-        transition: cardStyles.base.transition,
-        backgroundColor: 'white',
-        border: `2px dashed ${colors.gray[300]}`,
+        width: '140px',
+        height: '200px',
+        borderRadius: '8px',
+        backgroundColor: '#1a1a1a',
+        border: '2px dashed #404040',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'pointer',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
-      className="hover:shadow-lg hover:border-blue-400 hover:bg-blue-50 group"
+      className="add-card-mobile group"
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = '#0ea5e9';
+        e.currentTarget.style.backgroundColor = '#2a2a2a';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = '#404040';
+        e.currentTarget.style.backgroundColor = '#1a1a1a';
+      }}
     >
       <div style={{ textAlign: 'center' }}>
         <div
           style={{
-            width: '64px',
-            height: '64px',
+            width: '40px',
+            height: '40px',
             margin: '0 auto',
-            marginBottom: spacing.md,
+            marginBottom: '8px',
             borderRadius: '50%',
-            backgroundColor: colors.gray[100],
+            backgroundColor: '#2a2a2a',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            transition: 'all 0.3s ease',
           }}
-          className="group-hover:bg-blue-100 transition-colors"
+          className="group-hover:bg-[#0ea5e9] transition-colors"
         >
           <svg
-            style={{ width: '32px', height: '32px', color: colors.gray[400] }}
-            className="group-hover:text-blue-500 transition-colors"
+            style={{ width: '20px', height: '20px', color: '#a3a3a3' }}
+            className="group-hover:text-white transition-colors"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -54,12 +67,21 @@ export default function AddCard({ onClick }: AddCardProps) {
           </svg>
         </div>
         <p
-          style={{ color: colors.gray[500], fontWeight: 500 }}
-          className="group-hover:text-blue-600 transition-colors"
+          style={{ color: '#a3a3a3', fontWeight: 600, fontSize: '11px' }}
+          className="group-hover:text-white transition-colors"
         >
-          새 포트폴리오
+          새로 만들기
         </p>
       </div>
-    </button>
+      
+      <style jsx>{`
+        @media (min-width: 768px) {
+          .add-card-mobile {
+            width: 200px !important;
+            height: 280px !important;
+          }
+        }
+      `}</style>
+    </motion.button>
   );
 }

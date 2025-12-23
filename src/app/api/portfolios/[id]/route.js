@@ -54,7 +54,7 @@ export async function PUT(request, { params }) {
     }
 
     const body = await request.json();
-    const { title, content, status, order, image_url } = body;
+    const { title, content, status, order, image_url, tracking_prompt, notification_enabled } = body;
 
     const updatedPortfolio = await Portfolio.update(id, {
       title,
@@ -63,6 +63,23 @@ export async function PUT(request, { params }) {
       order,
       imageUrl: image_url,
     });
+
+    // 트래킹 정보 업데이트
+    const PortfolioTracking = (await import('@/models/PortfolioTracking.js')).default;
+    const db = (await import('@/utils/db.js')).default;
+    const trackings = await PortfolioTracking.findByPortfolioId(id);
+    
+    if (trackings.length > 0 && (tracking_prompt !== undefined || notification_enabled !== undefined)) {
+      const tracking = trackings[0];
+      if (tracking_prompt !== undefined) {
+        await db.prepare('UPDATE portfolio_trackings SET logic_prompt = ? WHERE id = ?')
+          .run(tracking_prompt, tracking.id);
+      }
+      if (notification_enabled !== undefined) {
+        await db.prepare('UPDATE portfolio_trackings SET notification_enabled = ? WHERE id = ?')
+          .run(notification_enabled, tracking.id);
+      }
+    }
 
     // 이미지 URL 처리
     const portfolioWithImage = {

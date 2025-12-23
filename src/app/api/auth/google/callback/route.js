@@ -1,9 +1,9 @@
 export async function GET(request) {
   // 동적 import로 CommonJS 모듈 로드 (try 밖에서)
-  const { OAuth2Client } = await import('google-auth-library');
-  const User = (await import('@/models/User')).default;
-  const { createToken } = await import('@/utils/jwt');
-  const logger = (await import('@/utils/logger')).default;
+    const { OAuth2Client } = await import('google-auth-library');
+    const User = (await import('@/models/User')).default;
+    const { createToken } = await import('@/utils/jwt');
+    const logger = (await import('@/utils/logger')).default;
 
   // 앱 기본 URL (환경변수에서 가져오기)
   const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';

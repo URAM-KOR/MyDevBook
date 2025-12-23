@@ -1,13 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { colors, spacing, button } from '@/styles/design-tokens';
+import { useState, useEffect, useRef } from 'react';
+import { Portfolio } from '@/types';
+import { WeatherStatus } from './WeatherOverlay';
+import { weatherConfig } from './WeatherOverlay';
+import { Bell, BellOff } from 'lucide-react';
 
-export default function PushNotification() {
+interface PushNotificationProps {
+  portfolios?: Portfolio[];
+}
+
+export default function PushNotification({ portfolios = [] }: PushNotificationProps) {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -15,6 +24,16 @@ export default function PushNotification() {
       setPermission(Notification.permission);
     }
     checkSubscription();
+
+    // 외부 클릭 시 툴팁 닫기
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setActiveTooltip(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const checkSubscription = async () => {
@@ -33,7 +52,7 @@ export default function PushNotification() {
       // 알림 권한 요청
       const perm = await Notification.requestPermission();
       setPermission(perm);
-      
+
       if (perm !== 'granted') {
         alert('알림 권한이 필요합니다.');
         setLoading(false);
@@ -84,7 +103,7 @@ export default function PushNotification() {
         },
       });
       const result = await response.json();
-      
+
       if (result.success) {
         alert(result.message);
       } else {
@@ -97,62 +116,116 @@ export default function PushNotification() {
     }
   };
 
+  // 툴팁 토글 함수
+  const toggleTooltip = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActiveTooltip(activeTooltip === id ? null : id);
+  };
+
   // 클라이언트에서만 렌더링
   if (!mounted) {
     return null;
   }
 
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    return null;
-  }
+  // 통계 계산
+  const stats = portfolios.reduce((acc, portfolio) => {
+    const status = (portfolio.weather_status || 'healthy') as WeatherStatus;
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {} as Record<WeatherStatus, number>);
 
   return (
-    <div style={{
-      padding: spacing.md,
-      backgroundColor: colors.gray[50],
-      borderRadius: '12px',
-      marginBottom: spacing.lg,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '20px' }}>🔔</span>
-        <span style={{ fontSize: '14px', color: colors.gray[700] }}>
-          {subscribed ? '알림 활성화됨' : '알림을 받으시겠습니까?'}
-        </span>
-        
-        {!subscribed && (
-          <button
-            onClick={subscribe}
-            disabled={loading}
-            style={{
-              padding: `${spacing.xs} ${spacing.md}`,
-              backgroundColor: colors.blue[500],
-              color: 'white',
-              borderRadius: button.borderRadius,
-              border: 'none',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-            }}
-          >
-            {loading ? '처리중...' : '알림 허용'}
-          </button>
-        )}
-        
-        {subscribed && (
-          <button
-            onClick={testNotification}
-            disabled={loading}
-            style={{
-              padding: `${spacing.xs} ${spacing.md}`,
-              backgroundColor: colors.gray[200],
-              color: colors.gray[700],
-              borderRadius: button.borderRadius,
-              border: 'none',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-            }}
-          >
-            {loading ? '전송중...' : '테스트 알림'}
-          </button>
+    <div ref={containerRef} className="px-4 pt-3.5 pb-1.5 border-b border-white/10 -mt-4 mb-4">
+      <div className="flex items-center justify-between text-xs text-gray-400">
+
+        {/* 왼쪽: 포트폴리오 상태 통계 */}
+        <div className="flex items-center gap-3">
+          {Object.entries(weatherConfig).map(([key, config]) => {
+            const count = stats[key as WeatherStatus] || 0;
+            if (count === 0) return null;
+            const tooltipId = `stat-${key}`;
+            const isActive = activeTooltip === tooltipId;
+
+            return (
+              <div
+                key={key}
+                className="relative flex items-center gap-1.5 px-2 py-1 rounded-full border cursor-pointer group transition-all hover:scale-105 active:scale-95"
+                style={{
+                  backgroundColor: config.bgTint || 'rgba(255,255,255,0.05)',
+                  borderColor: config.borderColor || 'rgba(255,255,255,0.1)',
+                }}
+                onClick={(e) => toggleTooltip(tooltipId, e)}
+              >
+                <span className="text-sm">{config.emoji}</span>
+                <span className="text-xs font-bold" style={{ color: config.borderColor }}>{count}</span>
+
+                {/* Status Tooltip */}
+                <div
+                  className={`absolute left-0 top-full mt-2 w-40 p-2 bg-gray-900 border border-gray-700 text-xs text-gray-200 rounded-lg shadow-xl z-50 transition-opacity ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 pointer-events-none'}`}
+                >
+                  <div className="absolute -top-1 left-3 w-2 h-2 bg-gray-900 border-t border-l border-gray-700 transform rotate-45"></div>
+                  {config.label}
+                </div>
+              </div>
+            );
+          })}
+          {portfolios.length === 0 && (
+            <span className="text-gray-500 italic">No quests active</span>
+          )}
+        </div>
+
+        {/* 오른쪽: 알림 제어 */}
+        {typeof window !== 'undefined' && 'Notification' in window && (
+          <div className="flex items-center gap-3">
+
+            {/* 상태 표시 및 툴팁 영역 (Hover/Click Group) */}
+            <div
+              className="relative flex items-center gap-2 cursor-pointer group"
+              onClick={(e) => toggleTooltip('notification', e)}
+            >
+              {subscribed ? (
+                <>
+                  <Bell size={14} className="text-green-400 animate-pulse" />
+                  <span className="hidden sm:inline text-green-400 font-bold">ON</span>
+                </>
+              ) : (
+                <>
+                  <BellOff size={14} className="text-gray-500" />
+                  <span className="hidden sm:inline text-gray-500">OFF</span>
+                </>
+              )}
+
+              {/* Tooltip */}
+              <div
+                className={`absolute right-0 top-full mt-2 w-48 p-2 bg-gray-800 border border-gray-700 text-xs text-gray-200 rounded-lg shadow-xl z-50 text-center transition-opacity ${activeTooltip === 'notification' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 pointer-events-none'}`}
+              >
+                <div className="absolute -top-1 right-3 w-2 h-2 bg-gray-800 border-t border-l border-gray-700 transform rotate-45"></div>
+                {subscribed
+                  ? "현재 알림이 활성화된 상태입니다."
+                  : "현재 알림이 비활성화된 상태입니다."}
+              </div>
+            </div>
+
+            {!subscribed && (
+              <button
+                onClick={subscribe}
+                disabled={loading}
+                className="px-2 py-0.5 text-xs bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/50 rounded transition-colors disabled:opacity-50"
+              >
+                {loading ? '...' : '켜기'}
+              </button>
+            )}
+
+            {subscribed && (
+              <button
+                onClick={testNotification}
+                disabled={loading}
+                className="px-2 py-0.5 text-xs bg-gray-700/50 hover:bg-gray-700 text-gray-300 border border-gray-600 rounded transition-colors disabled:opacity-50"
+              >
+                {loading ? '...' : 'Test'}
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -174,4 +247,3 @@ function urlBase64ToUint8Array(base64String: string) {
   }
   return outputArray;
 }
-
