@@ -3,7 +3,7 @@ const logger = require('./logger');
 
 async function initDatabase() {
   logger.info('Initializing database tables...');
-  
+
   // Users 테이블
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -17,36 +17,44 @@ async function initDatabase() {
     )
   `);
 
-  // Portfolios 테이블
+  // Portfolios 테이블 (사용자가 직접 관리하는 필드만)
   await db.exec(`
     CREATE TABLE IF NOT EXISTS portfolios (
       id VARCHAR(255) PRIMARY KEY,
       user_id VARCHAR(255) NOT NULL,
       title TEXT NOT NULL,
+      description TEXT,
       content TEXT,
       status VARCHAR(50) NOT NULL DEFAULT 'active',
       "order" INTEGER NOT NULL DEFAULT 0,
       image_url TEXT,
-      weather_status VARCHAR(50) DEFAULT 'healthy',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
 
-  // Portfolio_Trackings 테이블
+  // Migration for existing tables
+  await db.exec(`
+    ALTER TABLE portfolios ADD COLUMN IF NOT EXISTS description TEXT;
+  `);
+
+  // Portfolio_Trackings 테이블 (GPT 응답으로 업데이트되는 필드만)
   await db.exec(`
     CREATE TABLE IF NOT EXISTS portfolio_trackings (
       id VARCHAR(255) PRIMARY KEY,
       portfolio_id VARCHAR(255) NOT NULL,
       url TEXT NOT NULL,
       target_key TEXT,
-      current_value TEXT,
-      last_status VARCHAR(50),
       logic_prompt TEXT NOT NULL,
       auth_token TEXT,
       auth_type VARCHAR(50) DEFAULT 'none',
-      last_checked_at TIMESTAMP,
+      -- GPT 응답으로 업데이트되는 필드
+      current_value TEXT,
+      weather_status VARCHAR(50) DEFAULT 'healthy',
+      encouragement_message TEXT,
+      -- 알림 설정
+      notification_enabled BOOLEAN DEFAULT true,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE

@@ -3,6 +3,7 @@ import { colors, spacing, button, typography } from '@/styles/design-tokens';
 
 interface InitialData {
   title?: string;
+  description?: string;
   content?: string;
   tracking_url?: string;
   tracking_prompt?: string;
@@ -17,10 +18,12 @@ interface PortfolioWizardProps {
 
 export interface PortfolioFormData {
   title: string;
+  description?: string; // 주절주절 메모
   content: string;          // 목표 키 (추적할 대상)
   tracking_url: string;
   tracking_prompt: string;  // 알림 조건
   current_value?: string;   // GPT가 분석한 현재 값
+  notification_enabled?: boolean; // 알림 활성화 여부
 }
 
 interface UrlCheckResult {
@@ -51,20 +54,21 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
   const [currentStep, setCurrentStep] = useState(STEPS.TITLE);
   const [formData, setFormData] = useState<PortfolioFormData>({
     title: initialData?.title || '',
+    description: initialData?.description || '',
     content: initialData?.content || '',
     tracking_url: initialData?.tracking_url || '',
     tracking_prompt: initialData?.tracking_prompt || '',
   });
   const [direction, setDirection] = useState<'next' | 'prev'>('next');
-  
+
   // URL 체크 상태
   const [checkingUrl, setCheckingUrl] = useState(false);
   const [urlCheckResult, setUrlCheckResult] = useState<UrlCheckResult | null>(null);
-  
+
   // GPT 분석 상태
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  
+
   // 제출 중 상태 (중복 제출 방지)
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -121,7 +125,7 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           url: formData.tracking_url,
           data: fresh.data,
           targetKey: formData.content,  // 추적 목표와 동일하게 사용
@@ -130,7 +134,7 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
 
       const result = await response.json();
       setAnalysisResult(result);
-      
+
       if (result.success) {
         setFormData(prev => ({ ...prev, current_value: result.currentValue }));
       }
@@ -146,15 +150,15 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
     if (isSubmitting) {
       return;
     }
-    
+
     if (isLastStep) {
       setIsSubmitting(true);
       onSubmit(formData);
       return;
     }
-    
+
     setDirection('next');
-    
+
     if (currentStep === STEPS.TITLE) {
       setCurrentStep(STEPS.URL);
     } else if (currentStep === STEPS.URL && formData.tracking_url) {
@@ -261,7 +265,7 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
         return (
           <div>
             <h3 style={styles.stepTitle}>🔍 URL 접근 확인</h3>
-            
+
             <div style={styles.checkSection}>
               <div style={styles.checkHeader}>
                 <span style={{ fontSize: '18px' }}>
@@ -327,7 +331,7 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
         return (
           <div>
             <h3 style={styles.stepTitle}>📊 현재 값 확인</h3>
-            
+
             <div style={styles.targetInfo}>
               <span>🎯 추적 목표:</span>
               <strong>{formData.content}</strong>
@@ -359,11 +363,11 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
             </div>
 
             {!analyzing && (
-              <button 
+              <button
                 onClick={() => {
                   setAnalysisResult(null);
                   setCurrentStep(STEPS.TARGET_KEY);
-                }} 
+                }}
                 style={styles.retryButton}
               >
                 🔄 다시 분석
@@ -376,7 +380,7 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
         return (
           <div>
             <h3 style={styles.stepTitle}>🔔 알림 조건</h3>
-            
+
             <div style={styles.summaryBox}>
               <div style={styles.summaryRow}>
                 <span>🎯 목표:</span>
@@ -425,8 +429,8 @@ export default function PortfolioWizard({ onSubmit, onCancel, initialData, isEdi
                 marginBottom: '4px',
               }}
             />
-            <span style={{ 
-              fontSize: '9px', 
+            <span style={{
+              fontSize: '9px',
               color: index <= currentStep ? colors.blue[500] : colors.gray[400],
               whiteSpace: 'nowrap',
             }}>

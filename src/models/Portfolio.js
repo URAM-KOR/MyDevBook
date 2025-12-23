@@ -6,14 +6,14 @@ class Portfolio {
   static async create(portfolioData) {
     try {
       const id = uuidv4();
-      const { userId, title, content, status = 'active', order = 0, imageUrl } = portfolioData;
+      const { userId, title, description, content, status = 'active', order = 0, imageUrl } = portfolioData;
 
       const stmt = db.prepare(`
-        INSERT INTO portfolios (id, user_id, title, content, status, "order", image_url)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO portfolios (id, user_id, title, description, content, status, "order", image_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `);
 
-      await stmt.run(id, userId, title, content, status, order, imageUrl || null);
+      await stmt.run(id, userId, title, description || null, content, status, order, imageUrl || null);
       logger.logDatabase('INSERT', 'portfolios', { id, userId, title });
 
       return await this.findById(id);
@@ -77,7 +77,7 @@ class Portfolio {
 
   static async update(id, updateData) {
     try {
-      const { title, content, status, order, imageUrl } = updateData;
+      const { title, description, content, status, order, imageUrl } = updateData;
       const fields = [];
       const values = [];
       let paramIndex = 1;
@@ -85,6 +85,10 @@ class Portfolio {
       if (title !== undefined) {
         fields.push(`title = $${paramIndex++}`);
         values.push(title);
+      }
+      if (description !== undefined) {
+        fields.push(`description = $${paramIndex++}`);
+        values.push(description);
       }
       if (content !== undefined) {
         fields.push(`content = $${paramIndex++}`);

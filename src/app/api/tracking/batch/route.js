@@ -63,11 +63,18 @@ export async function GET(request) {
             .run(result.newValue, tracking.id);
         }
         
-        // weather_status 업데이트 (Portfolio 테이블)
+        // weather_status 업데이트 (PortfolioTracking 테이블)
         if (result.weatherStatus) {
           const db = (await import('@/utils/db.js')).default;
-          db.prepare('UPDATE portfolios SET weather_status = ? WHERE id = ?')
-            .run(result.weatherStatus, tracking.portfolio_id);
+          db.prepare('UPDATE portfolio_trackings SET weather_status = ? WHERE id = ?')
+            .run(result.weatherStatus, tracking.id);
+        }
+        
+        // encouragement_message 업데이트 (PortfolioTracking 테이블)
+        if (result.encouragementMessage) {
+          const db = (await import('@/utils/db.js')).default;
+          db.prepare('UPDATE portfolio_trackings SET encouragement_message = ? WHERE id = ?')
+            .run(result.encouragementMessage, tracking.id);
         }
         
       } catch (error) {

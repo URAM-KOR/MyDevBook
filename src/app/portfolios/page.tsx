@@ -7,6 +7,7 @@ import PortfolioGrid from '@/components/PortfolioGrid';
 import Loading from '@/components/Loading';
 import Modal from '@/components/Modal';
 import PortfolioWizard from '@/components/PortfolioWizard';
+import PortfolioEditForm from '@/components/PortfolioEditForm';
 import PushNotification from '@/components/PushNotification';
 
 // 클라이언트 전용 컴포넌트 (Hydration 에러 방지)
@@ -33,12 +34,12 @@ function PortfoliosContent() {
   } : null;
 
   return (
-    <PageLayout title="My Dev Books">
+    <PageLayout title="">
       {loading ? (
         <Loading />
       ) : (
         <>
-          <PushNotification />
+          <PushNotification portfolios={portfolios} />
           <PortfolioGrid
             portfolios={portfolios}
             onEdit={handleEdit}
@@ -48,17 +49,25 @@ function PortfoliosContent() {
         </>
       )}
 
-      <Modal 
-        isOpen={showModal} 
+      <Modal
+        isOpen={showModal}
         onClose={closeModal}
         title={editingPortfolio ? '포트폴리오 수정' : '새 포트폴리오'}
       >
-        <PortfolioWizard 
-          onSubmit={editingPortfolio ? handleUpdate : handleCreate} 
-          onCancel={closeModal}
-          initialData={initialData}
-          isEditing={!!editingPortfolio}
-        />
+        {editingPortfolio ? (
+          <PortfolioEditForm
+            portfolio={editingPortfolio}
+            onSubmit={handleUpdate}
+            onCancel={closeModal}
+          />
+        ) : (
+          <PortfolioWizard
+            onSubmit={handleCreate}
+            onCancel={closeModal}
+            initialData={null}
+            isEditing={false}
+          />
+        )}
       </Modal>
     </PageLayout>
   );
@@ -67,7 +76,7 @@ function PortfoliosContent() {
 export default function PortfoliosPage() {
   return (
     <Suspense fallback={
-      <PageLayout title="My Dev Books">
+      <PageLayout title="">
         <Loading />
       </PageLayout>
     }>

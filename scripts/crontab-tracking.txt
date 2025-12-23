@@ -7,6 +7,6 @@
 # 4. 매 시간마다: 0 * * * *
 # 5. 매일 오전 9시: 0 9 * * *
 
-# 현재 설정: 매 10분마다 트래킹 체크
-* */8 * * * cd /home/ubuntu/apps/fairyquest && /usr/bin/node scripts/batch-tracking.js >> /home/ubuntu/logs/fairyquest-tracking.log 2>&1
+# 현재 설정: 매 8시간마다 트래킹 체크 (한 번 실행되고 종료)
+0 */8 * * * cd /home/ubuntu/apps/fairyquest && /usr/bin/node scripts/batch-tracking.mjs >> /home/ubuntu/logs/fairyquest-tracking.log 2>&1
 

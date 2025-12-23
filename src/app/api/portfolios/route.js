@@ -4,34 +4,6 @@ import { getImageUrl } from '@/utils/imageHelper.js';
 import { verifyToken } from '@/utils/jwt.js';
 import logger from '@/utils/logger.js';
 
-// 날씨(관리) 상태 결정
-// healthy: 잘 관리됨 ✨
-// alert: 변화 감지! 🔔
-// hungry: 관리 필요 (3일 이상) 😢
-// cobweb: 오래 방치됨 (7일 이상) 🕸️
-// infested: 심각하게 방치됨 (14일 이상) 🪳
-function getWeatherStatus(tracking) {
-  if (!tracking) return 'healthy'; // 트래킹 없으면 건강
-  
-  // 변화 감지 여부 확인
-  const status = tracking.last_status?.toLowerCase() || '';
-  if (status.includes('detect') || status.includes('변화') || status.includes('alert') || status.includes('changed')) {
-    return 'alert';
-  }
-  
-  // 마지막 확인 시간 기준
-  if (!tracking.last_checked_at) return 'cobweb'; // 한 번도 확인 안 됨
-  
-  const lastChecked = new Date(tracking.last_checked_at);
-  const now = new Date();
-  const daysDiff = (now - lastChecked) / (1000 * 60 * 60 * 24);
-  
-  if (daysDiff >= 14) return 'infested';  // 🪳 14일 이상
-  if (daysDiff >= 7) return 'cobweb';     // 🕸️ 7일 이상
-  if (daysDiff >= 3) return 'hungry';     // 😢 3일 이상
-  
-  return 'healthy'; // ✨ 잘 관리됨
-}
 
 // GET: 포트폴리오 조회
 export async function GET(request) {
@@ -55,15 +27,16 @@ export async function GET(request) {
         ...portfolio,
         image_url: getImageUrl(portfolio.image_url, portfolio.title),
         tracking: tracking,
-        weather_status: getWeatherStatus(tracking),
+        // 트래킹의 weather_status와 encouragement_message 사용 (GPT 응답으로 업데이트됨)
+        weather_status: tracking?.weather_status || 'healthy',
+        encouragement_message: tracking?.encouragement_message || null,
         // 편집 시 사용할 플랫 필드
         tracking_url: tracking?.url || null,
         tracking_prompt: tracking?.logic_prompt || null,
         auth_type: tracking?.auth_type || 'none',
-        last_status: tracking?.last_status || null,
-        last_checked_at: tracking?.last_checked_at || null,
         current_value: tracking?.current_value || null,
         target_key: tracking?.target_key || null,
+        notification_enabled: tracking?.notification_enabled !== false,
       };
     }));
 
@@ -132,7 +105,8 @@ export async function POST(request) {
       ...portfolio,
       image_url: getImageUrl(portfolio.image_url, portfolio.title),
       tracking: tracking,
-      weather_status: getWeatherStatus(tracking),
+      weather_status: tracking?.weather_status || 'healthy',
+      encouragement_message: tracking?.encouragement_message || null,
     };
 
     return Response.json(portfolioWithDetails, { status: 201 });

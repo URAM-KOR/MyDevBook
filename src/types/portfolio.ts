@@ -13,8 +13,10 @@ export interface PortfolioTracking {
   portfolio_id: string;
   url: string;
   logic_prompt: string;
-  last_status: string | null;
-  last_checked_at: string | null;
+  // GPT 응답으로 업데이트되는 필드
+  current_value?: string | null;
+  weather_status?: WeatherStatus;
+  encouragement_message?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -23,6 +25,7 @@ export interface Portfolio {
   id: string;
   user_id: string;
   title: string;
+  description: string | null;
   content: string | null;
   image_url: string | null;
   status: string;
@@ -35,14 +38,14 @@ export interface Portfolio {
   tracking_url?: string | null;
   tracking_prompt?: string | null;
   auth_type?: 'none' | 'github' | 'bearer';
-  last_status?: string | null;
-  last_checked_at?: string | null;
   current_value?: string | null;
   target_key?: string | null;
+  encouragement_message?: string | null;
 }
 
 export interface PortfolioCreateDto {
   title: string;
+  description?: string;
   content?: string;
   status?: string;
   order?: number;
@@ -53,6 +56,7 @@ export interface PortfolioCreateDto {
 
 export interface PortfolioUpdateDto {
   title?: string;
+  description?: string;
   content?: string;
   status?: string;
   order?: number;

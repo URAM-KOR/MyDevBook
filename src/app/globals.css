@@ -2,3 +2,47 @@
 
 @source "../components/**/*.{js,ts,jsx,tsx}";
 @source "../hooks/**/*.{js,ts,jsx,tsx}";
+
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --color-primary: #4ade80;
+  --color-primary-dark: #22c55e;
+  --color-secondary: #0ea5e9;
+  --color-accent: #facc15;
+  --color-surface: #f3f4f6;
+}
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+  --primary: #4ade80;
+  --primary-dark: #22c55e;
+  --secondary: #0ea5e9;
+  --accent: #facc15;
+  --surface: #f3f4f6;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+@layer utilities {
+  .text-shadow-game {
+    text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.2);
+  }
+  
+  .box-shadow-game {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+                0 2px 4px -1px rgba(0, 0, 0, 0.06),
+                0 8px 0px 0px rgba(0, 0, 0, 0.1); 
+  }
+}

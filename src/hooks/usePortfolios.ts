@@ -104,7 +104,7 @@ export function usePortfolios() {
     setShowModal(true);
   };
 
-  const handleUpdate = async (wizardData: WizardFormData) => {
+  const handleUpdate = async (wizardData: WizardFormData & { image_url?: string }) => {
     const token = localStorage.getItem('token');
     if (!token || !editingPortfolio) return;
 
@@ -120,6 +120,10 @@ export function usePortfolios() {
           content: wizardData.content,
           tracking_url: wizardData.tracking_url,
           tracking_prompt: wizardData.tracking_prompt,
+          image_url: wizardData.image_url,
+          notification_enabled: (wizardData as any).notification_enabled !== undefined 
+            ? (wizardData as any).notification_enabled 
+            : true,
         }),
       });
 
